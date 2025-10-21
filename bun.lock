@@ -71,6 +71,10 @@
         "typescript": "^5.9.3",
       },
     },
+    "packages/typescript-config": {
+      "name": "@superset/typescript",
+      "version": "0.0.0",
+    },
     "packages/ui": {
       "name": "@superset/ui",
       "version": "0.0.0",
@@ -107,10 +111,6 @@
         "@types/culori": "^4.0.1",
         "typescript": "^5.9.3",
       },
-    },
-    "tooling/typescript": {
-      "name": "@superset/typescript",
-      "version": "0.0.0",
     },
   },
   "packages": {
@@ -398,7 +398,7 @@
 
     "@superset/scripts": ["@superset/scripts@workspace:packages/scripts"],
 
-    "@superset/typescript": ["@superset/typescript@workspace:tooling/typescript"],
+    "@superset/typescript": ["@superset/typescript@workspace:packages/typescript-config"],
 
     "@superset/ui": ["@superset/ui@workspace:packages/ui"],
 

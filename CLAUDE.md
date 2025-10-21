@@ -12,7 +12,7 @@ Bun + Turbo monorepo with:
   - `packages/constants` - Shared constants
   - `packages/models` - Shared data models
   - `packages/scripts` - CLI tooling
-- **Tooling**: `tooling/typescript` - TypeScript configs
+  - `packages/typescript-config` - TypeScript configs
 
 ## Tech Stack
 

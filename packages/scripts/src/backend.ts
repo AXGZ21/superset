@@ -1,7 +1,7 @@
-import chalk from "chalk";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import chalk from "chalk";
 import ora, { type Ora } from "ora";
 import { z } from "zod";
 import { writeEnvFile } from "./helpers";

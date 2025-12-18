@@ -59,6 +59,9 @@ export interface Workspace {
 	createdAt: number;
 	updatedAt: number;
 	lastOpenedAt: number;
+	// Remote workspace fields (when connected via SSH)
+	sshConnectionId?: string;
+	remotePath?: string;
 }
 
 export interface Tab {

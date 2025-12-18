@@ -55,10 +55,23 @@ export function TabsView() {
 	);
 
 	const handleAddTab = () => {
-		if (activeWorkspaceId) {
+		if (!activeWorkspaceId) return;
+
+		// For remote workspaces, create SSH tabs automatically
+		if (
+			activeWorkspace?.isRemote &&
+			activeWorkspace?.sshConnectionId &&
+			activeWorkspace?.sshConnection
+		) {
+			addSSHTab(activeWorkspaceId, {
+				connectionId: activeWorkspace.sshConnectionId,
+				connectionName: activeWorkspace.sshConnection.name,
+				remoteCwd: activeWorkspace.remotePath,
+			});
+		} else {
 			addTab(activeWorkspaceId);
-			setCommandOpen(false);
 		}
+		setCommandOpen(false);
 	};
 
 	const handleOpenPresetsSettings = () => {

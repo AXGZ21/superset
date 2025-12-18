@@ -146,6 +146,30 @@ export const createSSHRouter = () => {
 				},
 			),
 
+		getHomeDir: publicProcedure
+			.input(z.object({ connectionId: z.string() }))
+			.mutation(
+				async ({
+					input,
+				}): Promise<{ homeDir: string | null; error?: string }> => {
+					try {
+						const result = await sshManager.executeCommand({
+							connectionId: input.connectionId,
+							command: "echo $HOME",
+						});
+						if (result.exitCode === 0 && result.stdout.trim()) {
+							return { homeDir: result.stdout.trim() };
+						}
+						return { homeDir: null, error: "Could not determine home directory" };
+					} catch (err) {
+						return {
+							homeDir: null,
+							error: err instanceof Error ? err.message : "Failed to get home directory",
+						};
+					}
+				},
+			),
+
 		connect: publicProcedure
 			.input(
 				z.object({

@@ -150,6 +150,66 @@ export const createWorkspacesRouter = () => {
 				};
 			}),
 
+		createRemote: publicProcedure
+			.input(
+				z.object({
+					sshConnectionId: z.string(),
+					remotePath: z.string(),
+					name: z.string().optional(),
+				}),
+			)
+			.mutation(async ({ input }) => {
+				const connection = db.data.sshConnections.find(
+					(c) => c.id === input.sshConnectionId,
+				);
+				if (!connection) {
+					throw new Error(`SSH connection ${input.sshConnectionId} not found`);
+				}
+
+				// Extract folder name from remote path for default name
+				const folderName =
+					input.remotePath.split("/").filter(Boolean).pop() || "Remote";
+				const workspaceName =
+					input.name || `${folderName} (${connection.name})`;
+
+				const maxTabOrder =
+					db.data.workspaces.length > 0
+						? Math.max(...db.data.workspaces.map((w) => w.tabOrder))
+						: -1;
+
+				const workspace = {
+					id: nanoid(),
+					projectId: "", // No local project for remote workspaces
+					worktreeId: "", // No local worktree for remote workspaces
+					name: workspaceName,
+					tabOrder: maxTabOrder + 1,
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					lastOpenedAt: Date.now(),
+					sshConnectionId: input.sshConnectionId,
+					remotePath: input.remotePath,
+				};
+
+				await db.update((data) => {
+					data.workspaces.push(workspace);
+					data.settings.lastActiveWorkspaceId = workspace.id;
+
+					// Update SSH connection last used time
+					const conn = data.sshConnections.find(
+						(c) => c.id === input.sshConnectionId,
+					);
+					if (conn) {
+						conn.lastUsedAt = Date.now();
+					}
+				});
+
+				return {
+					workspace,
+					sshConnectionId: input.sshConnectionId,
+					remotePath: input.remotePath,
+				};
+			}),
+
 		get: publicProcedure
 			.input(z.object({ id: z.string() }))
 			.query(({ input }) => {
@@ -239,6 +299,14 @@ export const createWorkspacesRouter = () => {
 				);
 			}
 
+			// Check if this is a remote workspace
+			const isRemote = !!workspace.sshConnectionId;
+			const sshConnection = isRemote
+				? db.data.sshConnections.find(
+						(c) => c.id === workspace.sshConnectionId,
+					)
+				: null;
+
 			const project = db.data.projects.find(
 				(p) => p.id === workspace.projectId,
 			);
@@ -258,6 +326,16 @@ export const createWorkspacesRouter = () => {
 					: null,
 				worktree: worktree
 					? { branch: worktree.branch, gitStatus: worktree.gitStatus }
+					: null,
+				// Remote workspace info
+				isRemote,
+				sshConnection: sshConnection
+					? {
+							id: sshConnection.id,
+							name: sshConnection.name,
+							host: sshConnection.host,
+							username: sshConnection.username,
+						}
 					: null,
 			};
 		}),

@@ -24,7 +24,12 @@ export function TopBar() {
 				<WorkspacesTabs />
 			</div>
 			<div className="flex items-center h-full pr-4">
-				<WorkspaceHeader worktreePath={activeWorkspace?.worktreePath} />
+				<WorkspaceHeader
+					worktreePath={activeWorkspace?.worktreePath}
+					isRemote={activeWorkspace?.isRemote}
+					remotePath={activeWorkspace?.remotePath}
+					sshConnectionName={activeWorkspace?.sshConnection?.name}
+				/>
 				<SettingsButton />
 				<HelpMenu />
 				{!isMac && <WindowControls />}

@@ -1,7 +1,14 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { useState } from "react";
 import { HiExclamationTriangle } from "react-icons/hi2";
-import { LuChevronUp, LuFolderGit, LuFolderOpen, LuX } from "react-icons/lu";
+import {
+	LuChevronUp,
+	LuFolderGit,
+	LuFolderOpen,
+	LuServer,
+	LuX,
+} from "react-icons/lu";
+import { OpenRemoteFolderDialog } from "renderer/components/OpenRemoteFolderDialog";
 import { trpc } from "renderer/lib/trpc";
 import { useOpenNew } from "renderer/react-query/projects";
 import { useCreateWorkspace } from "renderer/react-query/workspaces";
@@ -57,6 +64,7 @@ export function StartView() {
 	const createWorkspace = useCreateWorkspace();
 	const [error, setError] = useState<string | null>(null);
 	const [isCloneDialogOpen, setIsCloneDialogOpen] = useState(false);
+	const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false);
 	const [initGitDialog, setInitGitDialog] = useState<{
 		isOpen: boolean;
 		selectedPath: string;
@@ -178,6 +186,16 @@ export function StartView() {
 								}}
 								isLoading={isLoading}
 							/>
+
+							<ActionCard
+								icon={LuServer}
+								label="Remote"
+								onClick={() => {
+									setError(null);
+									setIsRemoteDialogOpen(true);
+								}}
+								isLoading={isLoading}
+							/>
 						</div>
 
 						{/* Recent Projects */}
@@ -274,6 +292,13 @@ export function StartView() {
 				selectedPath={initGitDialog.selectedPath}
 				onClose={() => setInitGitDialog({ isOpen: false, selectedPath: "" })}
 				onError={setError}
+			/>
+			<OpenRemoteFolderDialog
+				isOpen={isRemoteDialogOpen}
+				onClose={() => setIsRemoteDialogOpen(false)}
+				onOpen={() => {
+					// Workspace is auto-activated via tRPC invalidation
+				}}
 			/>
 		</div>
 	);

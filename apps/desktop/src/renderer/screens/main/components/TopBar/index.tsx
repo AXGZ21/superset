@@ -1,5 +1,6 @@
 import { trpc } from "renderer/lib/trpc";
 import { SettingsButton } from "../SettingsButton";
+import { ChatToggleButton } from "./ChatToggleButton";
 import { SidebarControl } from "./SidebarControl";
 import { WindowControls } from "./WindowControls";
 import { WorkspacesTabs } from "./WorkspaceTabs";
@@ -20,7 +21,8 @@ export function TopBar() {
 			<div className="flex items-center gap-2 flex-1 overflow-hidden h-full">
 				<WorkspacesTabs />
 			</div>
-			<div className="flex items-center h-full pr-4">
+			<div className="flex items-center gap-1 h-full pr-4">
+				<ChatToggleButton />
 				<SettingsButton />
 				{!isMac && <WindowControls />}
 			</div>

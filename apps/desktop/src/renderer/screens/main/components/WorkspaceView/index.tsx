@@ -7,9 +7,10 @@ import { useEffect, useMemo, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import { trpc } from "renderer/lib/trpc";
-import { useSidebarStore } from "renderer/stores";
+import { useChatSidebarStore, useSidebarStore } from "renderer/stores";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { HOTKEYS } from "shared/hotkeys";
+import { ChatSidebar } from "./ChatSidebar";
 import { ContentView } from "./ContentView";
 import { Sidebar } from "./Sidebar";
 import { WorkspaceHeader } from "./WorkspaceHeader";
@@ -95,6 +96,16 @@ export function WorkspaceView() {
 		useSidebarStore();
 	const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
 
+	// Chat sidebar state
+	const {
+		isOpen: isChatOpen,
+		size: chatSize,
+		setSize: setChatSize,
+		setIsResizing: setChatIsResizing,
+		toggle: toggleChat,
+	} = useChatSidebarStore();
+	const chatPanelRef = useRef<ImperativePanelHandle>(null);
+
 	useEffect(() => {
 		const panel = sidebarPanelRef.current;
 		if (!panel) return;
@@ -106,15 +117,36 @@ export function WorkspaceView() {
 		}
 	}, [isSidebarOpen]);
 
+	useEffect(() => {
+		const panel = chatPanelRef.current;
+		if (!panel) return;
+
+		if (isChatOpen) {
+			panel.expand();
+		} else {
+			panel.collapse();
+		}
+	}, [isChatOpen]);
+
+	// Toggle chat sidebar hotkey
+	useHotkeys(
+		HOTKEYS.TOGGLE_CHAT.keys,
+		(e) => {
+			e.preventDefault();
+			toggleChat();
+		},
+		[toggleChat],
+	);
+
 	return (
-		<div className="flex-1 h-full flex flex-col">
+		<div className="flex-1 h-full flex flex-col overflow-hidden">
 			<ResizablePanelGroup
 				direction="horizontal"
 				className="flex-1 bg-tertiary"
 			>
 				<ResizablePanel
 					ref={sidebarPanelRef}
-					defaultSize={sidebarSize}
+					defaultSize={isSidebarOpen ? sidebarSize : 0}
 					minSize={15}
 					maxSize={40}
 					collapsible
@@ -122,6 +154,7 @@ export function WorkspaceView() {
 					onCollapse={() => setSidebarSize(0)}
 					onExpand={() => setSidebarSize(15)}
 					onResize={setSidebarSize}
+					order={1}
 				>
 					{isSidebarOpen && <Sidebar />}
 				</ResizablePanel>
@@ -129,13 +162,35 @@ export function WorkspaceView() {
 					className="bg-tertiary hover:bg-border transition-colors"
 					onDragging={setIsResizing}
 				/>
-				<ResizablePanel defaultSize={100 - sidebarSize}>
+				<ResizablePanel defaultSize={60} minSize={25} order={2}>
 					<div className="h-full bg-background rounded-t-lg flex flex-col overflow-hidden">
 						<div className="flex-1 min-h-0 h-full">
 							<ContentView />
 						</div>
 						<WorkspaceHeader worktreePath={activeWorkspace?.worktreePath} />
 					</div>
+				</ResizablePanel>
+				<ResizableHandle
+					className="bg-tertiary hover:bg-border transition-colors"
+					onDragging={setChatIsResizing}
+				/>
+				<ResizablePanel
+					ref={chatPanelRef}
+					defaultSize={isChatOpen ? chatSize : 0}
+					minSize={25}
+					maxSize={60}
+					collapsible
+					collapsedSize={0}
+					onCollapse={() => setChatSize(0)}
+					onExpand={() => setChatSize(35)}
+					onResize={setChatSize}
+					order={3}
+				>
+					{isChatOpen && (
+						<div className="h-full overflow-hidden">
+							<ChatSidebar />
+						</div>
+					)}
 				</ResizablePanel>
 			</ResizablePanelGroup>
 		</div>

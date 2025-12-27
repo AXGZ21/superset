@@ -19,7 +19,7 @@ import {
 	SelectValue,
 } from "@superset/ui/select";
 import { Textarea } from "@superset/ui/textarea";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
 	HiCalendar,
 	HiCheckCircle,
@@ -31,9 +31,6 @@ import {
 import {
 	type SelectTask,
 	type TaskPriority,
-	setActiveOrganizationId,
-	useActiveOrganizationIdQuery,
-	useOrganizations,
 	useTasks,
 } from "renderer/lib/pglite";
 import { trpc } from "renderer/lib/trpc";
@@ -259,10 +256,10 @@ function TaskCard({
 	);
 }
 
-function TasksList({ organizationId }: { organizationId: string }) {
+function TasksList() {
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-	const result = useTasks(organizationId);
+	const result = useTasks();
 	const tasks = result?.rows ?? [];
 
 	if (tasks.length === 0) {
@@ -314,30 +311,6 @@ function Sidebar() {
 }
 
 export function TasksView() {
-	const { data: user } = trpc.user.me.useQuery();
-	const orgsResult = useOrganizations(user?.id ?? "");
-	const organizations = orgsResult?.rows;
-	const { activeOrganizationId, isLoaded: isActiveOrgLoaded } =
-		useActiveOrganizationIdQuery();
-
-	// Auto-select first org if none selected
-	useEffect(() => {
-		if (isActiveOrgLoaded && !activeOrganizationId && organizations?.length) {
-			setActiveOrganizationId(organizations[0].id);
-		}
-	}, [isActiveOrgLoaded, activeOrganizationId, organizations]);
-
-	// Wait for both queries to finish loading
-	const orgsLoaded = orgsResult !== undefined;
-	if (!orgsLoaded || !isActiveOrgLoaded) {
-		return null;
-	}
-
-	const effectiveOrgId = activeOrganizationId ?? organizations?.[0]?.id;
-	if (!effectiveOrgId) {
-		return null;
-	}
-
 	return (
 		<div className="flex flex-1 min-h-0 bg-background">
 			<Sidebar />
@@ -346,7 +319,7 @@ export function TasksView() {
 					<h1 className="text-lg font-semibold">Tasks</h1>
 				</div>
 				<ScrollArea className="flex-1 min-h-0">
-					<TasksList organizationId={effectiveOrgId} />
+					<TasksList />
 				</ScrollArea>
 			</div>
 		</div>

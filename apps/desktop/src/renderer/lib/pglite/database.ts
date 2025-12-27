@@ -10,37 +10,54 @@ export type PGliteWithExtensions = PGlite & {
 	sync: PGliteWithSync["sync"];
 };
 
-export type Database = Awaited<ReturnType<typeof createDatabase>>;
-export type DrizzleDB = Database["db"];
+export type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
 
-// Module-level resolved instances (set after database promise resolves)
-let _db: DrizzleDB | null = null;
-
-export function getDb(): DrizzleDB {
-	if (!_db)
-		throw new Error(
-			"Database not initialized - ensure PGliteProvider has mounted",
-		);
-	return _db;
+interface DatabaseState {
+	pg: PGliteWithExtensions;
+	db: DrizzleDB;
 }
 
-async function createDatabase() {
-	const pg = (await PGlite.create("idb://superset", {
-		extensions: {
-			live,
-			sync: electricSync(),
-		},
-	})) as PGliteWithExtensions;
+// Cache to prevent double-creation from React StrictMode
+const dbCache = new Map<string, Promise<DatabaseState>>();
 
-	await migrate(pg);
+/**
+ * Open (or create) a PGlite database for a specific organization.
+ * Each organization gets its own IndexedDB: idb://superset_{organizationId}
+ * Cached to handle React StrictMode double-invocation.
+ */
+export async function openOrganizationDatabase(
+	organizationId: string,
+): Promise<DatabaseState> {
+	const cached = dbCache.get(organizationId);
+	if (cached) return cached;
 
-	const db = drizzle(pg, { schema });
-	_db = db; // Store for synchronous access in hooks
+	const promise = (async () => {
+		const pg = (await PGlite.create(`idb://superset_${organizationId}`, {
+			extensions: { live, sync: electricSync() },
+		})) as PGliteWithExtensions;
 
-	return { pg, db };
+		await migrate(pg);
+
+		return { pg, db: drizzle(pg, { schema }) };
+	})();
+
+	dbCache.set(organizationId, promise);
+	return promise;
 }
 
-// Module singleton - only runs once
-export const database = createDatabase();
+/**
+ * Close and remove a database from the cache.
+ * Call this when switching organizations.
+ */
+export async function closeOrganizationDatabase(
+	organizationId: string,
+): Promise<void> {
+	const cached = dbCache.get(organizationId);
+	if (cached) {
+		dbCache.delete(organizationId);
+		const { pg } = await cached;
+		await pg.close();
+	}
+}
 
 export { schema };

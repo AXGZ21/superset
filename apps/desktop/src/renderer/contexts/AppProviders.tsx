@@ -2,6 +2,7 @@ import type React from "react";
 import { PostHogUserIdentifier } from "renderer/components/PostHogUserIdentifier";
 import { PGliteProvider } from "renderer/lib/pglite";
 import { MonacoProvider } from "./MonacoProvider";
+import { OrganizationsProvider } from "./OrganizationsProvider";
 import { PostHogProvider } from "./PostHogProvider";
 import { TRPCProvider } from "./TRPCProvider";
 
@@ -14,9 +15,11 @@ export function AppProviders({ children }: AppProvidersProps) {
 		<PostHogProvider>
 			<TRPCProvider>
 				<PostHogUserIdentifier />
-				<PGliteProvider>
-					<MonacoProvider>{children}</MonacoProvider>
-				</PGliteProvider>
+				<OrganizationsProvider>
+					<PGliteProvider>
+						<MonacoProvider>{children}</MonacoProvider>
+					</PGliteProvider>
+				</OrganizationsProvider>
 			</TRPCProvider>
 		</PostHogProvider>
 	);

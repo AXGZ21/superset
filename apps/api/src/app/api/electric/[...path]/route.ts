@@ -1,7 +1,7 @@
 import { ELECTRIC_PROTOCOL_QUERY_PARAMS } from "@electric-sql/client";
 import { db } from "@superset/db/client";
 import { organizationMembers, users } from "@superset/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { env } from "@/env";
 import { authenticateRequest } from "@/lib/auth";
 import { buildWhereClause } from "./utils";
@@ -25,20 +25,27 @@ export async function GET(request: Request): Promise<Response> {
 		return new Response("User not found", { status: 401 });
 	}
 
-	const memberships = await db.query.organizationMembers.findMany({
-		where: eq(organizationMembers.userId, user.id),
-	});
-	if (memberships.length === 0) {
-		return new Response("No organization memberships", { status: 403 });
+	// Get the requested organization ID from query params
+	const url = new URL(request.url);
+	const organizationId = url.searchParams.get("organizationId");
+	if (!organizationId) {
+		return new Response("Missing organizationId parameter", { status: 400 });
 	}
 
-	const orgIds = memberships.map((m) => m.organizationId);
+	// Verify user is a member of this organization
+	const membership = await db.query.organizationMembers.findFirst({
+		where: and(
+			eq(organizationMembers.userId, user.id),
+			eq(organizationMembers.organizationId, organizationId),
+		),
+	});
+	if (!membership) {
+		return new Response("Not a member of this organization", { status: 403 });
+	}
 
 	const originUrl = new URL(env.ELECTRIC_URL);
-	originUrl.searchParams.set("source_id", env.ELECTRIC_SOURCE_ID);
-	originUrl.searchParams.set("source_secret", env.ELECTRIC_SOURCE_SECRET);
+	originUrl.searchParams.set("secret", env.ELECTRIC_SECRET);
 
-	const url = new URL(request.url);
 	url.searchParams.forEach((value, key) => {
 		if (ELECTRIC_PROTOCOL_QUERY_PARAMS.includes(key)) {
 			originUrl.searchParams.set(key, value);
@@ -50,7 +57,7 @@ export async function GET(request: Request): Promise<Response> {
 		return new Response("Missing table parameter", { status: 400 });
 	}
 
-	const whereClause = await buildWhereClause(tableName, orgIds);
+	const whereClause = await buildWhereClause(tableName, organizationId);
 	if (!whereClause) {
 		return new Response(`Unknown table: ${tableName}`, { status: 400 });
 	}
@@ -64,10 +71,15 @@ export async function GET(request: Request): Promise<Response> {
 	// Forward to Electric
 	const response = await fetch(originUrl.toString());
 
-	// Must remove these headers per Electric docs
-	const headers = new Headers(response.headers);
-	headers.delete("content-encoding");
-	headers.delete("content-length");
+	// Forward headers, but remove content-encoding/length per Electric docs
+	// (these can cause issues when proxying compressed responses)
+	const headers = new Headers();
+	response.headers.forEach((value, key) => {
+		const lower = key.toLowerCase();
+		if (lower !== "content-encoding" && lower !== "content-length") {
+			headers.set(key, value);
+		}
+	});
 
 	return new Response(response.body, {
 		status: response.status,
@@ -75,3 +87,4 @@ export async function GET(request: Request): Promise<Response> {
 		headers,
 	});
 }
+

@@ -1,59 +1,37 @@
-import { useLiveQuery } from "@electric-sql/pglite-react";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
-import { database, getDb } from "./database";
-import {
-	localSettings,
-	organizationMembers,
-	organizations,
-	type SelectLocalSettings,
-	type SelectOrganization,
-	type SelectTask,
-	type SelectUser,
-	tasks,
-	users,
-} from "./schema";
+import type { PGlite } from "@electric-sql/pglite";
+import { useLiveQuery, usePGlite } from "@electric-sql/pglite-react";
+import { and, desc, inArray, isNull } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/pglite";
+import * as schema from "./schema";
+import { type SelectTask, type SelectUser, tasks, users } from "./schema";
 
-export function useTasks(organizationId: string) {
-	const db = getDb();
+/** Get the Drizzle db instance for the current org's PGlite. */
+export function useDb() {
+	// Cast through unknown - usePGlite returns PGliteWithLive but drizzle expects PGlite
+	return drizzle(usePGlite() as unknown as PGlite, { schema });
+}
+
+/**
+ * Get all tasks for the current org.
+ * Org is implicit - we're querying the per-org PGlite database.
+ */
+export function useTasks() {
+	const db = useDb();
 	const query = db
 		.select()
 		.from(tasks)
-		.where(
-			and(eq(tasks.organization_id, organizationId), isNull(tasks.deleted_at)),
-		)
+		.where(isNull(tasks.deleted_at))
 		.orderBy(desc(tasks.created_at));
 
 	const { sql, params } = query.toSQL();
 	return useLiveQuery<SelectTask>(sql, params);
 }
 
-export function useOrganizations(userId: string) {
-	const db = getDb();
-	const query = db
-		.select({
-			id: organizations.id,
-			clerk_org_id: organizations.clerk_org_id,
-			name: organizations.name,
-			slug: organizations.slug,
-			github_org: organizations.github_org,
-			avatar_url: organizations.avatar_url,
-			created_at: organizations.created_at,
-			updated_at: organizations.updated_at,
-		})
-		.from(organizations)
-		.innerJoin(
-			organizationMembers,
-			eq(organizationMembers.organization_id, organizations.id),
-		)
-		.where(eq(organizationMembers.user_id, userId))
-		.orderBy(organizations.name);
-
-	const { sql, params } = query.toSQL();
-	return useLiveQuery<SelectOrganization>(sql, params);
-}
-
+/**
+ * Get users by IDs.
+ */
 export function useUsers(userIds: string[]) {
-	const db = getDb();
+	const db = useDb();
 	const query = db
 		.select()
 		.from(users)
@@ -61,31 +39,4 @@ export function useUsers(userIds: string[]) {
 
 	const { sql, params } = query.toSQL();
 	return useLiveQuery<SelectUser>(sql, params);
-}
-
-export function useActiveOrganizationIdQuery() {
-	const db = getDb();
-	const query = db.select().from(localSettings).where(eq(localSettings.id, 1));
-
-	const { sql, params } = query.toSQL();
-	const result = useLiveQuery<SelectLocalSettings>(sql, params);
-
-	// result is undefined while loading, null/rows after loaded
-	const isLoaded = result !== undefined;
-	const activeOrganizationId =
-		result?.rows?.[0]?.active_organization_id ?? null;
-
-	return {
-		activeOrganizationId,
-		isLoaded,
-	};
-}
-
-export async function setActiveOrganizationId(organizationId: string) {
-	const { pg } = await database;
-	await pg.query(
-		`INSERT INTO local_settings (id, active_organization_id) VALUES (1, $1)
-		 ON CONFLICT (id) DO UPDATE SET active_organization_id = $1`,
-		[organizationId],
-	);
 }

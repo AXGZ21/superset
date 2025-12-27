@@ -42,8 +42,8 @@ if [ -n "$EXISTING_BRANCH" ]; then
   echo "🗄️  Using existing Neon branch..."
   BRANCH_ID="$EXISTING_BRANCH"
   # Get connection strings for existing branch
-  DIRECT_URL=$(neonctl connection-string "$EXISTING_BRANCH" --project-id "$NEON_PROJECT_ID")
-  POOLED_URL=$(neonctl connection-string "$EXISTING_BRANCH" --project-id "$NEON_PROJECT_ID" --pooled)
+  DIRECT_URL=$(neonctl connection-string "$EXISTING_BRANCH" --project-id "$NEON_PROJECT_ID" --role-name neondb_owner)
+  POOLED_URL=$(neonctl connection-string "$EXISTING_BRANCH" --project-id "$NEON_PROJECT_ID" --role-name neondb_owner --pooled)
 else
   echo "🗄️  Creating Neon branch..."
   NEON_OUTPUT=$(neonctl branches create \
@@ -52,8 +52,8 @@ else
     --output json)
   BRANCH_ID=$(echo "$NEON_OUTPUT" | jq -r '.branch.id')
   # Get connection strings for new branch
-  DIRECT_URL=$(neonctl connection-string "$BRANCH_ID" --project-id "$NEON_PROJECT_ID")
-  POOLED_URL=$(neonctl connection-string "$BRANCH_ID" --project-id "$NEON_PROJECT_ID" --pooled)
+  DIRECT_URL=$(neonctl connection-string "$BRANCH_ID" --project-id "$NEON_PROJECT_ID" --role-name neondb_owner)
+  POOLED_URL=$(neonctl connection-string "$BRANCH_ID" --project-id "$NEON_PROJECT_ID" --role-name neondb_owner --pooled)
 fi
 
 success "Neon branch ready: $WORKSPACE_NAME"

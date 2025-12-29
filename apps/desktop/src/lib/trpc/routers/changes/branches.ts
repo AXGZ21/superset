@@ -4,6 +4,7 @@ import { localDb } from "main/lib/local-db";
 import simpleGit from "simple-git";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
+import { assertWorktreePathInDb } from "./security";
 
 export const createBranchesRouter = () => {
 	return router({
@@ -18,6 +19,9 @@ export const createBranchesRouter = () => {
 					defaultBranch: string;
 					checkedOutBranches: Record<string, string>;
 				}> => {
+					// SECURITY: Validate worktreePath exists in localDb
+					assertWorktreePathInDb(input.worktreePath);
+
 					const git = simpleGit(input.worktreePath);
 
 					const branchSummary = await git.branch(["-a"]);
@@ -59,16 +63,10 @@ export const createBranchesRouter = () => {
 				}),
 			)
 			.mutation(async ({ input }): Promise<{ success: boolean }> => {
-				const git = simpleGit(input.worktreePath);
+				// SECURITY: Validate worktreePath exists in localDb and get record
+				const worktree = assertWorktreePathInDb(input.worktreePath);
 
-				const worktree = localDb
-					.select()
-					.from(worktrees)
-					.where(eq(worktrees.path, input.worktreePath))
-					.get();
-				if (!worktree) {
-					throw new Error(`No worktree found at path "${input.worktreePath}"`);
-				}
+				const git = simpleGit(input.worktreePath);
 
 				await git.checkout(input.branch);
 

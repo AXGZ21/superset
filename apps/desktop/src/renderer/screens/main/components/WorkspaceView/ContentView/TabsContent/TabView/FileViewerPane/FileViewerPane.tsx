@@ -103,6 +103,8 @@ export function FileViewerPane({
 	const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 	const [isDirty, setIsDirty] = useState(false);
 	const originalContentRef = useRef<string>("");
+	// Store draft content to preserve edits across view mode switches
+	const draftContentRef = useRef<string | null>(null);
 	const utils = trpc.useUtils();
 
 	// Track container dimensions for auto-split orientation
@@ -150,6 +152,8 @@ export function FileViewerPane({
 			if (editorRef.current) {
 				originalContentRef.current = editorRef.current.getValue();
 			}
+			// P1: Clear draft since content is now saved
+			draftContentRef.current = null;
 			// Invalidate queries to refresh data
 			utils.changes.readWorkingFile.invalidate();
 			utils.changes.getFileContents.invalidate();
@@ -204,8 +208,13 @@ export function FileViewerPane({
 	const handleEditorMount: OnMount = useCallback(
 		(editor) => {
 			editorRef.current = editor;
-			// Store original content for dirty tracking
-			originalContentRef.current = editor.getValue();
+			// Store original content for dirty tracking (only if not restoring draft)
+			// If we have draft content, originalContentRef is already set to the file content
+			if (!draftContentRef.current) {
+				originalContentRef.current = editor.getValue();
+			}
+			// P1: Update dirty state based on restored draft content
+			setIsDirty(editor.getValue() !== originalContentRef.current);
 
 			// Register save action with Cmd+S / Ctrl+S
 			editor.addAction({
@@ -227,11 +236,12 @@ export function FileViewerPane({
 		}
 	}, []);
 
-	// Reset dirty state when file changes
+	// Reset dirty state and draft when file changes
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Reset on file change only
 	useEffect(() => {
 		setIsDirty(false);
 		originalContentRef.current = "";
+		draftContentRef.current = null;
 	}, [filePath]);
 
 	// Fetch raw file content - always call hook, use enabled to control fetching
@@ -327,6 +337,11 @@ export function FileViewerPane({
 	const handleViewModeChange = (value: string) => {
 		if (!value) return;
 		const newMode = value as FileViewerMode;
+
+		// P1: Save current editor content before switching away from raw mode
+		if (viewMode === "raw" && editorRef.current) {
+			draftContentRef.current = editorRef.current.getValue();
+		}
 
 		// Update the pane's view mode in the store
 		const panes = useTabsStore.getState().panes;
@@ -429,12 +444,13 @@ export function FileViewerPane({
 		}
 
 		// P0-2: Key by filePath to force remount and fresh action registration
+		// P1: Use draft content if available (preserves edits across view mode switches)
 		return (
 			<Editor
 				key={filePath}
 				height="100%"
 				language={detectLanguage(filePath)}
-				value={rawFileData.content}
+				value={draftContentRef.current ?? rawFileData.content}
 				theme={SUPERSET_THEME}
 				onMount={handleEditorMount}
 				onChange={handleEditorChange}

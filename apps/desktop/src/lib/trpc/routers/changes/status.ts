@@ -4,6 +4,7 @@ import type { ChangedFile, GitChangesStatus } from "shared/changes-types";
 import simpleGit from "simple-git";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
+import { assertWorktreePathInDb } from "./security";
 import { applyNumstatToFiles } from "./utils/apply-numstat";
 import {
 	parseGitLog,
@@ -21,6 +22,9 @@ export const createStatusRouter = () => {
 				}),
 			)
 			.query(async ({ input }): Promise<GitChangesStatus> => {
+				// SECURITY: Validate worktreePath exists in localDb
+				assertWorktreePathInDb(input.worktreePath);
+
 				const git = simpleGit(input.worktreePath);
 				const defaultBranch = input.defaultBranch || "main";
 
@@ -64,6 +68,9 @@ export const createStatusRouter = () => {
 				}),
 			)
 			.query(async ({ input }): Promise<ChangedFile[]> => {
+				// SECURITY: Validate worktreePath exists in localDb
+				assertWorktreePathInDb(input.worktreePath);
+
 				const git = simpleGit(input.worktreePath);
 
 				const nameStatus = await git.raw([

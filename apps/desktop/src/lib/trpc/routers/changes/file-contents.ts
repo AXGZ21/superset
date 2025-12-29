@@ -8,31 +8,12 @@ import {
 	relative,
 	sep,
 } from "node:path";
-import { worktrees } from "@superset/local-db";
-import { eq } from "drizzle-orm";
-import { localDb } from "main/lib/local-db";
 import type { FileContents } from "shared/changes-types";
 import simpleGit from "simple-git";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
+import { validateWorktreePathInDb } from "./security";
 import { detectLanguage } from "./utils/parse-status";
-
-/**
- * Validates that a worktreePath exists in localDb.worktrees.
- * This prevents arbitrary filesystem access by ensuring the path
- * is a known, registered worktree.
- *
- * SECURITY: This is critical - without this check, a compromised renderer
- * could read/write arbitrary files by passing worktreePath="/" or similar.
- */
-function validateWorktreePathInDb(worktreePath: string): boolean {
-	const worktree = localDb
-		.select()
-		.from(worktrees)
-		.where(eq(worktrees.path, worktreePath))
-		.get();
-	return !!worktree;
-}
 
 /**
  * Checks if a normalized path contains directory traversal patterns.

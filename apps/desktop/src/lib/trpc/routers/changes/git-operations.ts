@@ -3,6 +3,7 @@ import simpleGit from "simple-git";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
 import { isUpstreamMissingError } from "./git-utils";
+import { assertWorktreePathInDb } from "./security";
 
 export { isUpstreamMissingError };
 
@@ -31,6 +32,9 @@ export const createGitOperationsRouter = () => {
 			)
 			.mutation(
 				async ({ input }): Promise<{ success: boolean; hash: string }> => {
+					// SECURITY: Validate worktreePath exists in localDb
+					assertWorktreePathInDb(input.worktreePath);
+
 					const git = simpleGit(input.worktreePath);
 					const result = await git.commit(input.message);
 					return { success: true, hash: result.commit };
@@ -45,6 +49,9 @@ export const createGitOperationsRouter = () => {
 				}),
 			)
 			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				// SECURITY: Validate worktreePath exists in localDb
+				assertWorktreePathInDb(input.worktreePath);
+
 				const git = simpleGit(input.worktreePath);
 				const hasUpstream = await hasUpstreamBranch(git);
 
@@ -65,6 +72,9 @@ export const createGitOperationsRouter = () => {
 				}),
 			)
 			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				// SECURITY: Validate worktreePath exists in localDb
+				assertWorktreePathInDb(input.worktreePath);
+
 				const git = simpleGit(input.worktreePath);
 				try {
 					await git.pull(["--rebase"]);
@@ -88,6 +98,9 @@ export const createGitOperationsRouter = () => {
 				}),
 			)
 			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				// SECURITY: Validate worktreePath exists in localDb
+				assertWorktreePathInDb(input.worktreePath);
+
 				const git = simpleGit(input.worktreePath);
 				try {
 					await git.pull(["--rebase"]);
@@ -115,6 +128,9 @@ export const createGitOperationsRouter = () => {
 			)
 			.mutation(
 				async ({ input }): Promise<{ success: boolean; url: string }> => {
+					// SECURITY: Validate worktreePath exists in localDb
+					assertWorktreePathInDb(input.worktreePath);
+
 					const git = simpleGit(input.worktreePath);
 					const branch = (await git.revparse(["--abbrev-ref", "HEAD"])).trim();
 					const hasUpstream = await hasUpstreamBranch(git);

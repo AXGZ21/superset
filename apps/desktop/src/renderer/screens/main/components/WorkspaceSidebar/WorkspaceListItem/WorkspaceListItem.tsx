@@ -208,7 +208,12 @@ export function WorkspaceListItem({
 				) : (
 					<>
 						<div className="flex items-center gap-2">
-							<span className={cn("truncate", isActive && "font-medium")}>
+							<span
+								className={cn(
+									"truncate text-muted-foreground",
+									isActive && "text-foreground font-medium",
+								)}
+							>
 								{name}
 							</span>
 							{pr && (

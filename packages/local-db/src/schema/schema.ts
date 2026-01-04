@@ -125,6 +125,11 @@ export type SelectWorkspace = typeof workspaces.$inferSelect;
 export type NavigationStyle = "top-bar" | "sidebar";
 
 /**
+ * Position for group tabs display
+ */
+export type GroupTabsPosition = "sidebar" | "content-header";
+
+/**
  * Settings table - single row with typed columns
  */
 export const settings = sqliteTable("settings", {
@@ -144,6 +149,7 @@ export const settings = sqliteTable("settings", {
 		"terminal_link_behavior",
 	).$type<TerminalLinkBehavior>(),
 	navigationStyle: text("navigation_style").$type<NavigationStyle>(),
+	groupTabsPosition: text("group_tabs_position").$type<GroupTabsPosition>(),
 });
 
 export type InsertSettings = typeof settings.$inferInsert;

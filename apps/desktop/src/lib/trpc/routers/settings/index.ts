@@ -6,6 +6,7 @@ import {
 import { localDb } from "main/lib/local-db";
 import {
 	DEFAULT_CONFIRM_ON_QUIT,
+	DEFAULT_GROUP_TABS_POSITION,
 	DEFAULT_NAVIGATION_STYLE,
 	DEFAULT_TERMINAL_LINK_BEHAVIOR,
 } from "shared/constants";
@@ -223,6 +224,26 @@ export const createSettingsRouter = () => {
 					.onConflictDoUpdate({
 						target: settings.id,
 						set: { navigationStyle: input.style },
+					})
+					.run();
+
+				return { success: true };
+			}),
+
+		getGroupTabsPosition: publicProcedure.query(() => {
+			const row = getSettings();
+			return row.groupTabsPosition ?? DEFAULT_GROUP_TABS_POSITION;
+		}),
+
+		setGroupTabsPosition: publicProcedure
+			.input(z.object({ position: z.enum(["sidebar", "content-header"]) }))
+			.mutation(({ input }) => {
+				localDb
+					.insert(settings)
+					.values({ id: 1, groupTabsPosition: input.position })
+					.onConflictDoUpdate({
+						target: settings.id,
+						set: { groupTabsPosition: input.position },
 					})
 					.run();
 

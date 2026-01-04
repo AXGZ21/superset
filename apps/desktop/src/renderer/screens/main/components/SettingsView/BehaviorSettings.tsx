@@ -11,6 +11,7 @@ import { Switch } from "@superset/ui/switch";
 import { trpc } from "renderer/lib/trpc";
 
 type NavigationStyle = "top-bar" | "sidebar";
+type GroupTabsPosition = "sidebar" | "content-header";
 
 export function BehaviorSettings() {
 	const utils = trpc.useUtils();
@@ -55,6 +56,29 @@ export function BehaviorSettings() {
 		},
 	});
 
+	// Group tabs position setting
+	const { data: groupTabsPosition, isLoading: isGroupTabsLoading } =
+		trpc.settings.getGroupTabsPosition.useQuery();
+	const setGroupTabsPosition = trpc.settings.setGroupTabsPosition.useMutation({
+		onMutate: async ({ position }) => {
+			await utils.settings.getGroupTabsPosition.cancel();
+			const previous = utils.settings.getGroupTabsPosition.getData();
+			utils.settings.getGroupTabsPosition.setData(undefined, position);
+			return { previous };
+		},
+		onError: (_err, _vars, context) => {
+			if (context?.previous !== undefined) {
+				utils.settings.getGroupTabsPosition.setData(
+					undefined,
+					context.previous,
+				);
+			}
+		},
+		onSettled: () => {
+			utils.settings.getGroupTabsPosition.invalidate();
+		},
+	});
+
 	const handleConfirmToggle = (enabled: boolean) => {
 		setConfirmOnQuit.mutate({ enabled });
 	};
@@ -94,6 +118,10 @@ export function BehaviorSettings() {
 		setNavigationStyle.mutate({ style });
 	};
 
+	const handleGroupTabsPositionChange = (position: GroupTabsPosition) => {
+		setGroupTabsPosition.mutate({ position });
+	};
+
 	return (
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
@@ -125,6 +153,34 @@ export function BehaviorSettings() {
 						<SelectContent>
 							<SelectItem value="top-bar">Top bar</SelectItem>
 							<SelectItem value="sidebar">Sidebar</SelectItem>
+						</SelectContent>
+					</Select>
+				</div>
+
+				{/* Group Tabs Position */}
+				<div className="flex items-center justify-between">
+					<div className="space-y-0.5">
+						<Label
+							htmlFor="group-tabs-position"
+							className="text-sm font-medium"
+						>
+							Group tabs position
+						</Label>
+						<p className="text-xs text-muted-foreground">
+							Sidebar includes rename, reorder, and presets; header is compact
+						</p>
+					</div>
+					<Select
+						value={groupTabsPosition ?? "sidebar"}
+						onValueChange={handleGroupTabsPositionChange}
+						disabled={isGroupTabsLoading || setGroupTabsPosition.isPending}
+					>
+						<SelectTrigger id="group-tabs-position" className="w-[160px]">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="sidebar">Sidebar</SelectItem>
+							<SelectItem value="content-header">Content header</SelectItem>
 						</SelectContent>
 					</Select>
 				</div>

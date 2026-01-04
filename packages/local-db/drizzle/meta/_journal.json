@@ -57,6 +57,13 @@
       "when": 1767350000000,
       "tag": "0007_add_workspace_is_unread",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1767548339097,
+      "tag": "0008_add_group_tabs_position",
+      "breakpoints": true
     }
   ]
 }

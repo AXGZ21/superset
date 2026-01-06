@@ -85,8 +85,6 @@ export class HeadlessEmulator {
 		});
 
 		this.serializeAddon = new SerializeAddon();
-		// @ts-expect-error - SerializeAddon types expect @xterm/xterm Terminal, but works with @xterm/headless at runtime
-		// This is a known xterm ecosystem type mismatch. See: https://github.com/xtermjs/xterm.js/issues/4775
 		this.terminal.loadAddon(this.serializeAddon);
 
 		// Initialize mode state

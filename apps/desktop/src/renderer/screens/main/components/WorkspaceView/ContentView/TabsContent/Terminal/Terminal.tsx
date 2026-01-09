@@ -702,11 +702,17 @@ export const Terminal = ({
 
 						// Don't enable streaming - user must click Start Shell
 						didFirstRenderRef.current = true;
+						// Don't focus - user needs to interact with overlay button
 						return;
 					}
 
 					pendingInitialStateRef.current = result;
 					maybeApplyInitialState();
+
+					// Re-focus terminal after successful reconnection (non-cold-restore)
+					if (isFocusedRef.current) {
+						xterm.focus();
+					}
 				},
 				onError: (error) => {
 					setConnectionError(error.message || "Connection failed");

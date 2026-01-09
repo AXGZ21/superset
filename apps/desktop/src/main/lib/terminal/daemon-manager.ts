@@ -246,6 +246,12 @@ export class DaemonTerminalManager extends EventEmitter {
 		// Handle client disconnection - notify all active sessions
 		this.client.on("disconnected", () => {
 			console.warn("[DaemonTerminalManager] Disconnected from daemon");
+			const activeSessionCount = Array.from(this.sessions.values()).filter(
+				(s) => s.isAlive,
+			).length;
+			track("terminal_daemon_disconnected", {
+				active_session_count: activeSessionCount,
+			});
 			this.daemonAliveSessionIds.clear();
 			this.daemonSessionIdsHydrated = false;
 			// Emit disconnect event for all active sessions so terminals can show error UI
@@ -556,6 +562,13 @@ export class DaemonTerminalManager extends EventEmitter {
 							rows: metadata.rows || rows,
 						});
 
+						// Track cold restore event
+						track("terminal_cold_restored", {
+							workspace_id: workspaceId,
+							pane_id: paneId,
+							scrollback_bytes: scrollback.length,
+						});
+
 						return {
 							isNew: false,
 							scrollback,
@@ -672,11 +685,18 @@ export class DaemonTerminalManager extends EventEmitter {
 				);
 			}
 
-			// Track terminal opened (only on actual daemon session creation).
+			// Track terminal events
 			if (response.isNew) {
 				track("terminal_opened", {
 					workspace_id: workspaceId,
 					pane_id: paneId,
+				});
+			} else if (response.wasRecovered) {
+				// Warm attach - reconnected to existing daemon session
+				track("terminal_warm_attached", {
+					workspace_id: workspaceId,
+					pane_id: paneId,
+					snapshot_bytes: response.snapshot.snapshotAnsi?.length ?? 0,
 				});
 			}
 

@@ -84,6 +84,239 @@ This refactor is intentionally conservative to avoid regressions:
 This work is a refactor, so milestones are organized to keep behavior stable and to validate frequently.
 
 
+## Target Shape (After Refactor)
+
+This section is illustrative. It shows the intended file layout, key types, and call flows after the refactor. It is not a full implementation, but it should be concrete enough that a new contributor can “see” how responsibilities move out of the tRPC router and out of `Terminal.tsx`.
+
+
+### File Tree (Proposed)
+
+    apps/desktop/src/main/lib/terminal/
+      index.ts                         # exports getTerminalRuntime()
+      runtime.ts                        # TerminalRuntime + selection (process-scoped)
+      runtime-types.ts                  # TerminalSessionBackend / DaemonManagement / capabilities
+      manager.ts                        # in-process backend (existing)
+      daemon-manager.ts                 # daemon backend (existing)
+      types.ts                          # existing shared terminal types (CreateSessionParams, SessionResult, events)
+
+    apps/desktop/src/lib/trpc/routers/terminal/
+      terminal.ts                       # uses getTerminalRuntime(); no instanceof checks
+      terminal.stream.test.ts           # stream invariants (exit does not complete)
+
+    apps/desktop/src/renderer/.../Terminal/
+      Terminal.tsx                      # UI wiring, minimal branching
+      init-plan.ts                      # buildTerminalInitPlan(result) -> TerminalInitPlan
+      apply-init-plan.ts                # applyTerminalInitPlan({ xterm, plan, ... })
+      useTerminalStream.ts              # buffering + flush until ready (no UI)
+      types.ts                          # TerminalInitPlan + stream event types (renderer-only)
+      hooks/
+        useTerminalConnection.ts         # tRPC mutations (existing)
+
+
+### Terminal Runtime Types (Main Process)
+
+The goal is to stop encoding backend choice as a “mode string” that callers branch on. Callers should see capabilities and nullable management objects instead.
+
+    export interface TerminalCapabilities {
+      /** Sessions can survive app restarts */
+      persistent: boolean;
+      /** Backend supports cold restore (disk-backed or otherwise) */
+      coldRestore: boolean;
+      /** Sessions can be managed remotely (future: cloud terminals) */
+      remoteManagement: boolean;
+    }
+
+    export interface TerminalSessionBackend {
+      // Core lifecycle (normalized to async, even if an implementation is sync today)
+      createOrAttach(params: CreateSessionParams): Promise<SessionResult>;
+      write(params: { paneId: string; data: string }): Promise<void>;
+      resize(params: { paneId: string; cols: number; rows: number; seq?: number }): Promise<void>;
+      signal(params: { paneId: string; signal?: string }): Promise<void>;
+      kill(params: { paneId: string }): Promise<void>;
+      detach(params: { paneId: string }): Promise<void>;
+      clearScrollback(params: { paneId: string }): Promise<void>;
+
+      // Workspace helpers used outside the terminal router
+      killByWorkspaceId(workspaceId: string): Promise<{ killed: number; failed: number }>;
+      getSessionCountByWorkspaceId(workspaceId: string): Promise<number>;
+      refreshPromptsForWorkspace(workspaceId: string): Promise<void>;
+
+      // Cold restore semantics
+      ackColdRestore(paneId: string): Promise<void>;
+
+      // EventEmitter contract (must match today)
+      on(event: string, listener: (...args: unknown[]) => void): this;
+      off(event: string, listener: (...args: unknown[]) => void): this;
+      once(event: string, listener: (...args: unknown[]) => void): this;
+    }
+
+    export interface DaemonManagement {
+      listSessions(): Promise<ListSessionsResponse>;
+      forceKillAll(): Promise<void>;
+      resetHistoryPersistence(): Promise<void>;
+    }
+
+    export interface TerminalRuntime {
+      sessions: TerminalSessionBackend;
+      daemon: DaemonManagement | null;
+      capabilities: TerminalCapabilities;
+    }
+
+`getTerminalRuntime()` must return the same instance across the process lifetime (or at minimum the same `sessions` object), so we do not multiply event listeners or daemon connections.
+
+    let cachedRuntime: TerminalRuntime | null = null;
+
+    export function getTerminalRuntime(): TerminalRuntime {
+      if (cachedRuntime) return cachedRuntime;
+
+      const sessions = getActiveTerminalManager(); // existing selection logic (cached by “requires restart”)
+      const daemon = sessions instanceof DaemonTerminalManager ? sessions : null;
+
+      cachedRuntime = {
+        sessions,
+        daemon: daemon
+          ? {
+              listSessions: () => daemon.listDaemonSessions(),
+              forceKillAll: () => daemon.forceKillAll(),
+              resetHistoryPersistence: () => daemon.resetHistoryPersistence(),
+            }
+          : null,
+        capabilities: {
+          persistent: daemon !== null,
+          coldRestore: daemon !== null,
+          remoteManagement: false,
+        },
+      };
+
+      return cachedRuntime;
+    }
+
+Notes:
+
+1. The `sessions instanceof DaemonTerminalManager` check is allowed here because this module is the only backend-selection boundary; the tRPC router and UI must not need it.
+2. If daemon capability exists but a call fails (daemon unreachable, request fails), we propagate the error. We do not convert failures into “daemon disabled” states.
+
+
+### tRPC Router Shape (No Daemon Type Checks)
+
+The terminal router captures the runtime once when the router is created (not per request), and then delegates consistently. It branches only on the presence of a capability object (`runtime.daemon`), never on `instanceof`.
+
+    export const createTerminalRouter = () => {
+      const runtime = getTerminalRuntime();
+
+      return router({
+        createOrAttach: publicProcedure
+          .input(...)
+          .mutation(async ({ input }) => runtime.sessions.createOrAttach(input)),
+
+        stream: publicProcedure
+          .input(z.string())
+          .subscription(({ input: paneId }) =>
+            observable((emit) => {
+              const onExit = (exitCode: number, signal?: number) => {
+                // IMPORTANT: do not complete on exit
+                emit.next({ type: "exit", exitCode, signal });
+              };
+              ...
+            }),
+          ),
+
+        listDaemonSessions: publicProcedure.query(async () => {
+          if (!runtime.daemon) return { daemonModeEnabled: false, sessions: [] };
+          const response = await runtime.daemon.listSessions();
+          return { daemonModeEnabled: true, sessions: response.sessions };
+        }),
+      });
+    };
+
+
+### Renderer Decomposition (Reducing `Terminal.tsx` Branching)
+
+The renderer still needs to implement UI behaviors (cold restore overlay, retry overlay, focus, hotkeys), but it should not be the place where we interleave protocol concerns and restoration sequencing. The refactor decomposes the terminal renderer into three small helpers and keeps `Terminal.tsx` as wiring.
+
+`init-plan.ts` (pure adapter):
+
+    export interface TerminalInitPlan {
+      initialAnsi: string;
+      rehydrateSequences: string;
+      cwd: string | null;
+      modes: { alternateScreen: boolean; bracketedPaste: boolean };
+      restoreStrategy: "altScreenRedraw" | "snapshotReplay";
+      isColdRestore: boolean;
+      previousCwd: string | null;
+    }
+
+    // `CreateOrAttachOutput` here refers to the renderer-visible shape returned by
+    // `trpc.terminal.createOrAttach` (which includes `snapshot` and/or `scrollback`).
+    export function buildTerminalInitPlan(result: CreateOrAttachOutput): TerminalInitPlan {
+      const initialAnsi = result.snapshot?.snapshotAnsi ?? result.scrollback ?? "";
+      ...
+      return { ... };
+    }
+
+`apply-init-plan.ts` (ordering guarantees):
+
+    export async function applyTerminalInitPlan(params: {
+      xterm: Terminal;
+      fitAddon: FitAddon;
+      plan: TerminalInitPlan;
+      onReady: () => void; // marks stream ready + flushes pending events
+    }): Promise<void> {
+      // apply rehydrate → apply snapshot → then onReady
+      // if altScreenRedraw: enter alt screen, then trigger redraw, then onReady
+    }
+
+`useTerminalStream.ts` (buffering until ready):
+
+    export function useTerminalStream(params: {
+      paneId: string;
+      onEvent: (event: TerminalStreamEvent) => void;
+      isReady: () => boolean;
+      onBufferFlush: (events: TerminalStreamEvent[]) => void;
+    }) {
+      // subscribe via trpc.terminal.stream.useSubscription
+      // queue events while !isReady(), then flush deterministically when ready
+    }
+
+`Terminal.tsx` becomes composition:
+
+    const plan = buildTerminalInitPlan(result);
+    await applyTerminalInitPlan({ xterm, fitAddon, plan, onReady: () => setStreamReady(true) });
+
+The critical invariants remain unchanged:
+
+1. The stream subscription does not complete on exit.
+2. Events arriving “too early” are buffered until restore is finished.
+3. Cold restore remains read-only until Start Shell is clicked, and stale queued events are dropped before starting a new session (prevents “exit clears UI” regressions).
+
+
+### Diagrams (Call Flow)
+
+Main call flow (today and after refactor; the difference is where switching happens):
+
+    Renderer (Terminal.tsx + helpers)
+      |
+      | trpc.terminal.createOrAttach / trpc.terminal.stream
+      v
+    Electron Main (tRPC router)
+      |
+      | getTerminalRuntime().sessions  (no backend checks in router)
+      v
+    Terminal Backend (in-process OR daemon-manager)
+      |
+      | (daemon only) TerminalHostClient over unix socket
+      v
+    Terminal Host Daemon  --->  PTY subprocess per session
+
+Renderer composition after Milestone 6:
+
+    Terminal.tsx
+      ├─ useTerminalConnection()      (tRPC mutations)
+      ├─ useTerminalStream()          (buffer until ready; never completes on exit)
+      ├─ buildTerminalInitPlan()      (normalize snapshot vs scrollback, decide restore strategy)
+      └─ applyTerminalInitPlan()      (rehydrate → snapshot or alt-screen redraw → mark ready)
+
+
 ### Milestone 1: Establish a Backend Contract and Invariants
 
 This milestone documents and codifies the contract we must preserve during the refactor. At completion, a reader can point to a single place in the codebase that defines “what the terminal backend must do”, and a single set of invariants that all implementations must satisfy.

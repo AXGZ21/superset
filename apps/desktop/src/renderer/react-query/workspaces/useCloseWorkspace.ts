@@ -6,11 +6,6 @@ type CloseContext = {
 	>["workspaces"]["getAllGrouped"]["getData"] extends () => infer R
 		? R
 		: never;
-	previousAll: ReturnType<
-		typeof trpc.useUtils
-	>["workspaces"]["getAll"]["getData"] extends () => infer R
-		? R
-		: never;
 	previousActive: ReturnType<
 		typeof trpc.useUtils
 	>["workspaces"]["getActive"]["getData"] extends () => infer R
@@ -19,9 +14,8 @@ type CloseContext = {
 };
 
 /**
- * Mutation hook for closing a workspace without deleting the worktree
- * Uses optimistic updates to immediately remove workspace from UI,
- * then performs actual close in background.
+ * Closes a workspace without deleting the worktree.
+ * Uses getAllGrouped as source of truth since it's always cached by the sidebar.
  */
 export function useCloseWorkspace(
 	options?: Parameters<typeof trpc.workspaces.close.useMutation>[0],
@@ -31,19 +25,14 @@ export function useCloseWorkspace(
 	return trpc.workspaces.close.useMutation({
 		...options,
 		onMutate: async ({ id }) => {
-			// Cancel outgoing refetches to avoid overwriting optimistic update
 			await Promise.all([
-				utils.workspaces.getAll.cancel(),
 				utils.workspaces.getAllGrouped.cancel(),
 				utils.workspaces.getActive.cancel(),
 			]);
 
-			// Snapshot previous values for rollback
 			const previousGrouped = utils.workspaces.getAllGrouped.getData();
-			const previousAll = utils.workspaces.getAll.getData();
 			const previousActive = utils.workspaces.getActive.getData();
 
-			// Optimistically remove workspace from getAllGrouped cache
 			if (previousGrouped) {
 				utils.workspaces.getAllGrouped.setData(
 					undefined,
@@ -56,106 +45,77 @@ export function useCloseWorkspace(
 				);
 			}
 
-			// Optimistically remove workspace from getAll cache
-			if (previousAll) {
-				utils.workspaces.getAll.setData(
-					undefined,
-					previousAll.filter((w) => w.id !== id),
-				);
-			}
-
-			// Switch to next workspace to prevent "no workspace" flash
+			// Prevent "no workspace" flash by switching to next workspace
 			if (previousActive?.id === id) {
-				const remainingWorkspaces = previousAll
-					?.filter((w) => w.id !== id)
-					.sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
+				const remainingWorkspaces = previousGrouped
+					?.flatMap((g) =>
+						g.workspaces
+							.filter((w) => w.id !== id)
+							.map((w) => ({ workspace: w, project: g.project })),
+					)
+					.sort((a, b) => b.workspace.lastOpenedAt - a.workspace.lastOpenedAt);
 
 				if (remainingWorkspaces && remainingWorkspaces.length > 0) {
-					// Find a workspace with full data available in previousGrouped
-					let selectedWorkspace = null;
-					let projectGroup = null;
-					let workspaceFromGrouped = null;
+					const { workspace: nextWorkspace, project } = remainingWorkspaces[0];
 
-					for (const candidate of remainingWorkspaces) {
-						const group = previousGrouped?.find((g) =>
-							g.workspaces.some((w) => w.id === candidate.id),
-						);
-						if (group) {
-							selectedWorkspace = candidate;
-							projectGroup = group;
-							workspaceFromGrouped = group.workspaces.find(
-								(w) => w.id === candidate.id,
-							);
-							break;
-						}
-					}
+					const worktreeData =
+						nextWorkspace.type === "worktree"
+							? {
+									branch: nextWorkspace.branch,
+									baseBranch: null,
+									gitStatus: {
+										branch: nextWorkspace.branch,
+										needsRebase: false,
+										lastRefreshed: Date.now(),
+									},
+								}
+							: null;
 
-					if (selectedWorkspace && projectGroup && workspaceFromGrouped) {
-						const worktreeData =
-							workspaceFromGrouped.type === "worktree"
-								? {
-										branch: selectedWorkspace.branch,
-										baseBranch: null,
-										gitStatus: {
-											branch: selectedWorkspace.branch,
-											needsRebase: false,
-											lastRefreshed: Date.now(),
-										},
-									}
-								: null;
-
-						utils.workspaces.getActive.setData(undefined, {
-							...selectedWorkspace,
-							type: workspaceFromGrouped.type,
-							worktreePath: workspaceFromGrouped.worktreePath,
-							project: {
-								id: projectGroup.project.id,
-								name: projectGroup.project.name,
-								mainRepoPath: projectGroup.project.mainRepoPath,
-							},
-							worktree: worktreeData,
-						});
-					} else {
-						// Fallback: set minimal data to prevent StartView flash (refetch will populate full data)
-						const fallback = remainingWorkspaces[0];
-						utils.workspaces.getActive.setData(undefined, {
-							...fallback,
-							type: fallback.type === "branch" ? "branch" : "worktree",
-							worktreePath: "",
-							project: null,
-							worktree: null,
-						});
-					}
+					utils.workspaces.getActive.setData(undefined, {
+						id: nextWorkspace.id,
+						projectId: nextWorkspace.projectId,
+						worktreeId: nextWorkspace.worktreeId,
+						branch: nextWorkspace.branch,
+						name: nextWorkspace.name,
+						tabOrder: nextWorkspace.tabOrder,
+						createdAt: nextWorkspace.createdAt,
+						updatedAt: nextWorkspace.updatedAt,
+						lastOpenedAt: nextWorkspace.lastOpenedAt,
+						isUnread: nextWorkspace.isUnread,
+						type: nextWorkspace.type,
+						worktreePath: nextWorkspace.worktreePath,
+						deletingAt: null,
+						project: {
+							id: project.id,
+							name: project.name,
+							mainRepoPath: project.mainRepoPath,
+						},
+						worktree: worktreeData,
+					});
 				} else {
 					utils.workspaces.getActive.setData(undefined, null);
 				}
 			}
 
-			// Return context for rollback
-			return { previousGrouped, previousAll, previousActive } as CloseContext;
+			return { previousGrouped, previousActive } as CloseContext;
 		},
 		onError: (_err, _variables, context) => {
-			// Rollback to previous state on error
 			if (context?.previousGrouped !== undefined) {
 				utils.workspaces.getAllGrouped.setData(
 					undefined,
 					context.previousGrouped,
 				);
 			}
-			if (context?.previousAll !== undefined) {
-				utils.workspaces.getAll.setData(undefined, context.previousAll);
-			}
 			if (context?.previousActive !== undefined) {
 				utils.workspaces.getActive.setData(undefined, context.previousActive);
 			}
 		},
 		onSuccess: async (...args) => {
-			// Invalidate to ensure consistency with backend state
-			await utils.workspaces.invalidate();
-			// Invalidate project queries since close updates project metadata
+			// Only invalidate getAllGrouped, not getActive - we already set it optimistically
+			// and invalidating it causes a brief flash while refetching
+			await utils.workspaces.getAllGrouped.invalidate();
+			// Close updates project metadata (lastOpenedAt, etc.)
 			await utils.projects.getRecents.invalidate();
-
-			// Call user's onSuccess if provided
 			await options?.onSuccess?.(...args);
 		},
 	});

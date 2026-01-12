@@ -13,7 +13,7 @@ import { createStatusProcedures } from "./procedures/status";
  * Procedures are organized into logical groups:
  * - create: create, createBranchWorkspace, openWorktree
  * - delete: delete, close, canDelete
- * - query: get, getAll, getAllGrouped, getActive
+ * - query: get, getAllGrouped, getActive
  * - branch: getBranches, switchBranchWorkspace
  * - git-status: refreshGitStatus, getGitHubStatus, getWorktreeInfo, getWorktreesByProject
  * - status: setActive, reorder, update, setUnread

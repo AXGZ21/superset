@@ -21,15 +21,6 @@ export const createQueryProcedures = () => {
 				return workspace;
 			}),
 
-		getAll: publicProcedure.query(() => {
-			return localDb
-				.select()
-				.from(workspaces)
-				.where(isNull(workspaces.deletingAt))
-				.all()
-				.sort((a, b) => a.tabOrder - b.tabOrder);
-		}),
-
 		getAllGrouped: publicProcedure.query(() => {
 			const activeProjects = localDb
 				.select()

@@ -2,9 +2,8 @@ import { toast } from "@superset/ui/sonner";
 import { trpc } from "renderer/lib/trpc";
 
 /**
- * Mutation hook for setting the active workspace
- * Automatically invalidates getActive and getAll queries on success
- * Shows undo toast if workspace was marked as unread (auto-cleared on switch)
+ * Sets the active workspace.
+ * Shows undo toast if workspace was marked as unread (auto-cleared on switch).
  */
 export function useSetActiveWorkspace(
 	options?: Parameters<typeof trpc.workspaces.setActive.useMutation>[0],
@@ -33,10 +32,8 @@ export function useSetActiveWorkspace(
 			options?.onError?.(error, variables, context, meta);
 		},
 		onSuccess: async (data, variables, ...rest) => {
-			// Auto-invalidate active workspace and all workspaces queries
 			await Promise.all([
 				utils.workspaces.getActive.invalidate(),
-				utils.workspaces.getAll.invalidate(),
 				utils.workspaces.getAllGrouped.invalidate(),
 			]);
 

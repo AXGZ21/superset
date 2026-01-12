@@ -14,7 +14,12 @@ export interface MergedWorkspaceGroup {
 
 export function usePortsData() {
 	const { data: activeWorkspace } = trpc.workspaces.getActive.useQuery();
-	const { data: allWorkspaces } = trpc.workspaces.getAll.useQuery();
+	// Use getAllGrouped (always cached) instead of getAll to avoid cache sync issues
+	const { data: groupedWorkspaces } = trpc.workspaces.getAllGrouped.useQuery();
+	const allWorkspaces = useMemo(
+		() => groupedWorkspaces?.flatMap((g) => g.workspaces) ?? [],
+		[groupedWorkspaces],
+	);
 	const ports = usePortsStore((s) => s.ports);
 	const setPorts = usePortsStore((s) => s.setPorts);
 	const addPort = usePortsStore((s) => s.addPort);
@@ -53,7 +58,6 @@ export function usePortsData() {
 	});
 
 	const workspaceNames = useMemo(() => {
-		if (!allWorkspaces) return {};
 		return allWorkspaces.reduce(
 			(acc, ws) => {
 				acc[ws.id] = ws.name;

@@ -1,9 +1,9 @@
-import { EventEmitter } from "node:events";
 import { app, dialog } from "electron";
 import { autoUpdater } from "electron-updater";
-import { prerelease } from "semver";
 import { env } from "main/env.main";
 import { setSkipQuitConfirmation } from "main/index";
+import { EventEmitter } from "node:events";
+import { prerelease } from "semver";
 import { AUTO_UPDATE_STATUS, type AutoUpdateStatus } from "shared/auto-update";
 import { PLATFORM } from "shared/constants";
 
@@ -178,10 +178,6 @@ export function setupAutoUpdater(): void {
 		provider: "generic",
 		url: UPDATE_FEED_URL,
 	});
-
-	console.info(
-		`[auto-updater] Configured with feed URL: ${UPDATE_FEED_URL}, allowDowngrade: ${IS_PRERELEASE}`,
-	);
 
 	autoUpdater.on("error", (error) => {
 		console.error("[auto-updater] Error during update check:", error);

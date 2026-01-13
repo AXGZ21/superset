@@ -39,12 +39,6 @@ const config: Configuration = {
 		},
 	},
 
-	// Deep linking protocol - use different scheme for canary
-	protocols: {
-		name: productName,
-		schemes: ["superset-canary"],
-	},
-
 	// Linux overrides
 	linux: {
 		...baseConfig.linux,

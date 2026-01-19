@@ -8,6 +8,8 @@ const publicRoutes = [
 	"/auth/desktop",
 	"/api/auth/desktop",
 	"/api/mobile-pair",
+	"/api/mobile/voice-command",
+	"/api/mobile/commands",
 	"/mobile-scan",
 ];
 

@@ -18,8 +18,7 @@ import { loadToken } from "../auth/utils/auth-functions";
 // Event emitter for mobile commands
 export const mobileEvents = new EventEmitter();
 
-// Active relay connection
-let activeRelayAbortController: AbortController | null = null;
+// Active session
 let activeSessionId: string | null = null;
 
 interface MobileCommand {
@@ -39,120 +38,102 @@ function getDesktopInstanceId(): string {
 	return `desktop-${crypto.randomBytes(8).toString("hex")}`;
 }
 
+// Polling state
+let pollingInterval: NodeJS.Timeout | null = null;
+const POLL_INTERVAL_MS = 2000;
+
 /**
- * Connect to the relay server to receive mobile commands
+ * Poll for mobile commands from the server
  */
-async function connectToRelay(sessionId: string): Promise<void> {
-	// Disconnect any existing connection
-	disconnectFromRelay();
-
-	const { token } = await loadToken();
-	if (!token) {
-		console.error("[mobile] No auth token available");
-		return;
-	}
-
-	const abortController = new AbortController();
-	activeRelayAbortController = abortController;
-	activeSessionId = sessionId;
-
-	const relayUrl = new URL(`${env.NEXT_PUBLIC_API_URL}/api/mobile/relay`);
-	relayUrl.searchParams.set("sessionId", sessionId);
-
+async function pollForCommands(sessionId: string): Promise<void> {
 	try {
-		const response = await fetch(relayUrl.toString(), {
-			headers: {
-				Authorization: `Bearer ${token}`,
-			},
-			signal: abortController.signal,
-		});
+		const commandsUrl = new URL(`${env.NEXT_PUBLIC_API_URL}/api/mobile/commands`);
+		commandsUrl.searchParams.set("sessionId", sessionId);
+
+		const response = await fetch(commandsUrl.toString());
 
 		if (!response.ok) {
-			console.error("[mobile] Relay connection failed:", response.status);
-			return;
-		}
-
-		const reader = response.body?.getReader();
-		if (!reader) {
-			console.error("[mobile] No response body");
-			return;
-		}
-
-		const decoder = new TextDecoder();
-		let buffer = "";
-
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
-
-			buffer += decoder.decode(value, { stream: true });
-
-			// Process SSE events
-			const lines = buffer.split("\n");
-			buffer = lines.pop() ?? "";
-
-			for (const line of lines) {
-				if (line.startsWith("data: ")) {
-					try {
-						const data = JSON.parse(line.slice(6));
-						if (data.type === "command") {
-							mobileEvents.emit("command", data as MobileCommand);
-						} else if (data.type === "connected") {
-							console.log("[mobile] Connected to relay");
-							mobileEvents.emit("connected");
-						}
-					} catch {
-						// Ignore invalid JSON
-					}
-				}
+			if (response.status === 401) {
+				console.log("[mobile] Session expired, stopping poll");
+				disconnectFromRelay();
+				mobileEvents.emit("disconnected");
+				return;
 			}
+			console.error("[mobile] Poll failed:", response.status);
+			return;
+		}
+
+		const data = await response.json();
+		const commands = data.commands as MobileCommand[];
+
+		// Process each command
+		for (const command of commands) {
+			console.log("[mobile] Received command:", {
+				id: command.id,
+				targetType: command.targetType,
+				transcript: command.transcript.substring(0, 50),
+			});
+			mobileEvents.emit("command", command);
+
+			// Mark command as executed (we'll handle actual execution in renderer)
+			await markCommandExecuted(command.id);
 		}
 	} catch (err) {
-		if (!abortController.signal.aborted) {
-			console.error("[mobile] Relay error:", err);
-		}
-	} finally {
-		if (activeRelayAbortController === abortController) {
-			activeRelayAbortController = null;
-			activeSessionId = null;
-		}
+		console.error("[mobile] Poll error:", err);
 	}
 }
 
 /**
- * Disconnect from the relay server
+ * Mark a command as executed on the server
  */
-function disconnectFromRelay(): void {
-	if (activeRelayAbortController) {
-		activeRelayAbortController.abort();
-		activeRelayAbortController = null;
-		activeSessionId = null;
-	}
-}
-
-/**
- * Acknowledge a command was executed
- */
-async function acknowledgeCommand(
-	commandId: string,
-	success: boolean,
-	error?: string,
-): Promise<void> {
-	const { token } = await loadToken();
-	if (!token) return;
-
+async function markCommandExecuted(commandId: string): Promise<void> {
 	try {
-		await fetch(`${env.NEXT_PUBLIC_API_URL}/api/mobile/relay`, {
-			method: "DELETE",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({ commandId, success, error }),
+		const url = `${env.NEXT_PUBLIC_API_URL}/api/mobile/commands`;
+		await fetch(url, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ commandId, status: "executed" }),
 		});
 	} catch (err) {
-		console.error("[mobile] Failed to acknowledge command:", err);
+		console.error("[mobile] Failed to mark command as executed:", err);
 	}
+}
+
+/**
+ * Start polling for mobile commands
+ */
+function startPolling(sessionId: string): void {
+	// Stop any existing polling
+	stopPolling();
+
+	activeSessionId = sessionId;
+	console.log("[mobile] Starting command polling for session:", sessionId);
+	mobileEvents.emit("connected");
+
+	// Poll immediately, then at interval
+	pollForCommands(sessionId);
+	pollingInterval = setInterval(() => {
+		pollForCommands(sessionId);
+	}, POLL_INTERVAL_MS);
+}
+
+/**
+ * Stop polling for commands
+ */
+function stopPolling(): void {
+	if (pollingInterval) {
+		clearInterval(pollingInterval);
+		pollingInterval = null;
+	}
+	activeSessionId = null;
+}
+
+/**
+ * Disconnect from the relay server (stop polling)
+ */
+function disconnectFromRelay(): void {
+	stopPolling();
+	mobileEvents.emit("disconnected");
 }
 
 export const createMobileRouter = () => {
@@ -202,7 +183,7 @@ export const createMobileRouter = () => {
 					}
 
 					const data = await response.json();
-					const { pairingToken, expiresAt } = data.result.data.json;
+					const { sessionId, pairingToken, expiresAt } = data.result.data.json;
 
 					// Generate QR code data URL
 					// Format: superset://pair?token=XXX
@@ -211,10 +192,14 @@ export const createMobileRouter = () => {
 							? `superset-dev://pair?token=${pairingToken}`
 							: `superset://pair?token=${pairingToken}`;
 
+					// Start polling for commands on this session
+					startPolling(sessionId);
+
 					return {
 						success: true,
 						qrData,
 						pairingToken,
+						sessionId,
 						expiresAt,
 					};
 				} catch (err) {
@@ -231,9 +216,9 @@ export const createMobileRouter = () => {
 		 */
 		startRelayConnection: publicProcedure
 			.input(z.object({ sessionId: z.string() }))
-			.mutation(async ({ input }) => {
-				// Start connection in background
-				connectToRelay(input.sessionId).catch(console.error);
+			.mutation(({ input }) => {
+				// Start polling for commands
+				startPolling(input.sessionId);
 				return { success: true };
 			}),
 
@@ -250,7 +235,7 @@ export const createMobileRouter = () => {
 		 */
 		getRelayStatus: publicProcedure.query(() => {
 			return {
-				connected: activeRelayAbortController !== null,
+				connected: pollingInterval !== null,
 				sessionId: activeSessionId,
 			};
 		}),
@@ -288,7 +273,7 @@ export const createMobileRouter = () => {
 				mobileEvents.on("disconnected", disconnectedHandler);
 
 				// Emit initial state
-				emit.next({ connected: activeRelayAbortController !== null });
+				emit.next({ connected: pollingInterval !== null });
 
 				return () => {
 					mobileEvents.off("connected", connectedHandler);
@@ -309,7 +294,17 @@ export const createMobileRouter = () => {
 				}),
 			)
 			.mutation(async ({ input }) => {
-				await acknowledgeCommand(input.commandId, input.success, input.error);
+				const status = input.success ? "executed" : "failed";
+				const url = `${env.NEXT_PUBLIC_API_URL}/api/mobile/commands`;
+				await fetch(url, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						commandId: input.commandId,
+						status,
+						error: input.error,
+					}),
+				});
 				return { success: true };
 			}),
 	});

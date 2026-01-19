@@ -55,6 +55,7 @@ export const mobileRouter = {
 			}
 
 			return {
+				sessionId: createdSession.id,
 				pairingToken: createdSession.pairingToken,
 				expiresAt: createdSession.expiresAt,
 			};

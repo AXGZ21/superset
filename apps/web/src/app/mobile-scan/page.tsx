@@ -1,16 +1,27 @@
 "use client";
 
 import { Html5Qrcode } from "html5-qrcode";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	createSpeechRecognizer,
+	isSpeechRecognitionSupported,
+	type SpeechRecognizer,
+} from "@/lib/voice";
 
 type ScanState = "idle" | "processing" | "validating" | "success" | "error";
+type CommandTarget = "terminal" | "claude" | "task";
+
+interface PairingResult {
+	sessionId: string;
+	workspaceName: string;
+}
 
 export default function ScanPage() {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const [scanState, setScanState] = useState<ScanState>("idle");
 	const [error, setError] = useState<string | null>(null);
-	const [pairedWorkspace, setPairedWorkspace] = useState<string | null>(null);
+	const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
 
 	const processQRCode = useCallback(async (pairingToken: string) => {
 		setScanState("validating");
@@ -31,7 +42,10 @@ export default function ScanPage() {
 			}
 
 			setScanState("success");
-			setPairedWorkspace(data.workspaceName ?? "your workspace");
+			setPairingResult({
+				sessionId: data.sessionId,
+				workspaceName: data.workspaceName ?? "your workspace",
+			});
 		} catch (err) {
 			console.error("[scan] Validation error:", err);
 			setScanState("error");
@@ -103,7 +117,7 @@ export default function ScanPage() {
 	const reset = () => {
 		setScanState("idle");
 		setError(null);
-		setPairedWorkspace(null);
+		setPairingResult(null);
 		if (fileInputRef.current) {
 			fileInputRef.current.value = "";
 		}
@@ -112,9 +126,13 @@ export default function ScanPage() {
 	return (
 		<div className="flex flex-col gap-6">
 			<div>
-				<h1 className="mb-2 text-2xl font-medium text-white">Scan QR Code</h1>
+				<h1 className="mb-2 text-2xl font-medium text-white">
+					{scanState === "success" ? "Connected" : "Scan QR Code"}
+				</h1>
 				<p className="text-sm text-white/50">
-					Take a photo of the QR code on your desktop or upload an image.
+					{scanState === "success"
+						? `Paired to ${pairingResult?.workspaceName}`
+						: "Take a photo of the QR code on your desktop or upload an image."}
 				</p>
 			</div>
 
@@ -172,17 +190,12 @@ export default function ScanPage() {
 				</div>
 			)}
 
-			{scanState === "success" && (
-				<div className="flex flex-col items-center justify-center gap-4 rounded-2xl bg-green-500/10 p-12 text-center">
-					<CheckIcon className="h-16 w-16 text-green-500" />
-					<span className="text-xl font-medium text-white">Connected!</span>
-					{pairedWorkspace && (
-						<span className="text-white/70">Paired to {pairedWorkspace}</span>
-					)}
-					<p className="mt-2 text-sm text-white/50">
-						You can now use voice commands from your desktop app.
-					</p>
-				</div>
+			{scanState === "success" && pairingResult && (
+				<CommandInterface
+					sessionId={pairingResult.sessionId}
+					workspaceName={pairingResult.workspaceName}
+					onDisconnect={reset}
+				/>
 			)}
 
 			{scanState === "error" && (
@@ -207,6 +220,316 @@ export default function ScanPage() {
 					disabled={scanState !== "idle"}
 				/>
 			)}
+		</div>
+	);
+}
+
+function CommandInterface({
+	sessionId,
+	workspaceName,
+	onDisconnect,
+}: {
+	sessionId: string;
+	workspaceName: string;
+	onDisconnect: () => void;
+}) {
+	const [target, setTarget] = useState<CommandTarget>("claude");
+	const [textInput, setTextInput] = useState("");
+	const [isSending, setIsSending] = useState(false);
+	const [lastSent, setLastSent] = useState<string | null>(null);
+	const [sendError, setSendError] = useState<string | null>(null);
+
+	const sendCommand = useCallback(
+		async (transcript: string) => {
+			if (!transcript.trim() || isSending) return;
+
+			setIsSending(true);
+			setSendError(null);
+
+			try {
+				const response = await fetch("/api/mobile/voice-command", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						sessionId,
+						transcript: transcript.trim(),
+						targetType: target,
+					}),
+				});
+
+				const data = await response.json();
+
+				if (!response.ok) {
+					setSendError(data.error || "Failed to send command");
+					return;
+				}
+
+				setLastSent(transcript.trim());
+				setTextInput("");
+				// Clear the success message after a few seconds
+				setTimeout(() => setLastSent(null), 3000);
+			} catch (err) {
+				console.error("[command] Send error:", err);
+				setSendError("Network error. Please try again.");
+			} finally {
+				setIsSending(false);
+			}
+		},
+		[sessionId, target, isSending],
+	);
+
+	const handleTextSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		sendCommand(textInput);
+	};
+
+	return (
+		<div className="flex flex-col gap-6">
+			{/* Success indicator */}
+			<div className="flex items-center gap-3 rounded-xl bg-green-500/10 p-4">
+				<CheckIcon className="h-6 w-6 text-green-500" />
+				<div className="flex-1">
+					<p className="font-medium text-white">Connected</p>
+					<p className="text-sm text-white/50">Sending to {workspaceName}</p>
+				</div>
+				<button
+					onClick={onDisconnect}
+					className="rounded-lg bg-white/10 px-3 py-1.5 text-sm text-white/70 hover:bg-white/20"
+				>
+					Disconnect
+				</button>
+			</div>
+
+			{/* Target selector */}
+			<div className="flex flex-col gap-2">
+				<label className="text-sm text-white/70">Send to:</label>
+				<div className="flex gap-2">
+					{(["claude", "terminal", "task"] as const).map((t) => (
+						<button
+							key={t}
+							onClick={() => setTarget(t)}
+							className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+								target === t
+									? "bg-white text-black"
+									: "bg-white/10 text-white hover:bg-white/20"
+							}`}
+						>
+							{t === "claude" ? "Claude" : t === "terminal" ? "Terminal" : "New Task"}
+						</button>
+					))}
+				</div>
+			</div>
+
+			{/* Voice button */}
+			<VoiceInput
+				onTranscript={sendCommand}
+				target={target}
+				disabled={isSending}
+			/>
+
+			{/* Text input */}
+			<form onSubmit={handleTextSubmit} className="flex flex-col gap-2">
+				<label className="text-sm text-white/70">Or type a message:</label>
+				<div className="flex gap-2">
+					<input
+						type="text"
+						value={textInput}
+						onChange={(e) => setTextInput(e.target.value)}
+						placeholder={`Message to ${target === "claude" ? "Claude" : target === "terminal" ? "Terminal" : "create task"}...`}
+						disabled={isSending}
+						className="flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none disabled:opacity-50"
+					/>
+					<button
+						type="submit"
+						disabled={isSending || !textInput.trim()}
+						className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-black disabled:opacity-50"
+					>
+						{isSending ? "..." : "Send"}
+					</button>
+				</div>
+			</form>
+
+			{/* Feedback */}
+			{lastSent && (
+				<div className="rounded-lg bg-green-500/10 p-3 text-center">
+					<p className="text-sm text-green-400">Sent: "{lastSent}"</p>
+				</div>
+			)}
+			{sendError && (
+				<div className="rounded-lg bg-red-500/10 p-3 text-center">
+					<p className="text-sm text-red-400">{sendError}</p>
+				</div>
+			)}
+		</div>
+	);
+}
+
+function VoiceInput({
+	onTranscript,
+	target,
+	disabled,
+}: {
+	onTranscript: (transcript: string) => void;
+	target: CommandTarget;
+	disabled?: boolean;
+}) {
+	const [isListening, setIsListening] = useState(false);
+	const [transcript, setTranscript] = useState("");
+	const [interimTranscript, setInterimTranscript] = useState("");
+	const [isSupported, setIsSupported] = useState(true);
+
+	const recognizerRef = useRef<SpeechRecognizer | null>(null);
+	const finalTranscriptRef = useRef("");
+
+	useEffect(() => {
+		setIsSupported(isSpeechRecognitionSupported());
+	}, []);
+
+	const startListening = useCallback(() => {
+		if (disabled || !isSupported) return;
+
+		finalTranscriptRef.current = "";
+		setTranscript("");
+		setInterimTranscript("");
+
+		const recognizer = createSpeechRecognizer(
+			{
+				continuous: true,
+				interimResults: true,
+				language: "en-US",
+			},
+			{
+				onStart: () => {
+					setIsListening(true);
+				},
+				onEnd: () => {
+					setIsListening(false);
+					// Submit the final transcript
+					if (finalTranscriptRef.current.trim()) {
+						onTranscript(finalTranscriptRef.current.trim());
+						setTranscript("");
+						setInterimTranscript("");
+					}
+				},
+				onResult: ({ transcript: text, isFinal }) => {
+					if (isFinal) {
+						finalTranscriptRef.current += text + " ";
+						setTranscript(finalTranscriptRef.current);
+						setInterimTranscript("");
+					} else {
+						setInterimTranscript(text);
+					}
+				},
+				onError: (error) => {
+					console.error("[voice] Recognition error:", error);
+					setIsListening(false);
+				},
+			},
+		);
+
+		recognizerRef.current = recognizer;
+		recognizer.start();
+	}, [disabled, isSupported, onTranscript]);
+
+	const stopListening = useCallback(() => {
+		if (recognizerRef.current) {
+			recognizerRef.current.stop();
+			recognizerRef.current = null;
+		}
+	}, []);
+
+	const handlePointerDown = useCallback(
+		(e: React.PointerEvent) => {
+			e.preventDefault();
+			startListening();
+		},
+		[startListening],
+	);
+
+	const handlePointerUp = useCallback(
+		(e: React.PointerEvent) => {
+			e.preventDefault();
+			stopListening();
+		},
+		[stopListening],
+	);
+
+	const handlePointerLeave = useCallback(
+		(e: React.PointerEvent) => {
+			e.preventDefault();
+			if (isListening) {
+				stopListening();
+			}
+		},
+		[isListening, stopListening],
+	);
+
+	// Cleanup on unmount
+	useEffect(() => {
+		return () => {
+			if (recognizerRef.current) {
+				recognizerRef.current.abort();
+			}
+		};
+	}, []);
+
+	if (!isSupported) {
+		return (
+			<div className="text-center text-sm text-white/50">
+				Voice input is not supported in this browser. Use the text input below.
+			</div>
+		);
+	}
+
+	const displayTranscript = transcript + interimTranscript;
+
+	return (
+		<div className="flex flex-col items-center gap-4">
+			{/* Transcript display */}
+			{displayTranscript && (
+				<div className="w-full rounded-lg bg-white/5 p-3">
+					<p className="text-sm text-white">
+						{transcript}
+						<span className="text-white/50">{interimTranscript}</span>
+					</p>
+				</div>
+			)}
+
+			{/* Voice button */}
+			<button
+				type="button"
+				onPointerDown={handlePointerDown}
+				onPointerUp={handlePointerUp}
+				onPointerLeave={handlePointerLeave}
+				onPointerCancel={handlePointerLeave}
+				disabled={disabled}
+				className={`relative flex h-20 w-20 items-center justify-center rounded-full transition-all touch-none select-none ${
+					isListening
+						? "bg-red-500 scale-110"
+						: "bg-white/10 hover:bg-white/20 active:scale-95"
+				} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+			>
+				<MicrophoneIcon
+					className={`h-8 w-8 transition-colors ${
+						isListening ? "text-white" : "text-white/70"
+					}`}
+				/>
+
+				{/* Pulse animation when listening */}
+				{isListening && (
+					<>
+						<span className="absolute inset-0 animate-ping rounded-full bg-red-500 opacity-30" />
+						<span className="absolute inset-0 animate-pulse rounded-full bg-red-500 opacity-20" />
+					</>
+				)}
+			</button>
+
+			{/* Instructions */}
+			<p className="text-center text-sm text-white/50">
+				{isListening
+					? "Release to send"
+					: `Hold to speak to ${target === "terminal" ? "Terminal" : target === "claude" ? "Claude" : "create a Task"}`}
+			</p>
 		</div>
 	);
 }
@@ -302,6 +625,25 @@ function XIcon({ className }: { className?: string }) {
 		>
 			<path d="M18 6 6 18" />
 			<path d="m6 6 12 12" />
+		</svg>
+	);
+}
+
+function MicrophoneIcon({ className }: { className?: string }) {
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			className={className}
+		>
+			<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+			<path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+			<line x1="12" x2="12" y1="19" y2="22" />
 		</svg>
 	);
 }

@@ -372,7 +372,7 @@ function handleKill(payload: Buffer): void {
 	// tree-kill traverses by PPID to find all descendants
 	treeKill(pid, signal, (err) => {
 		if (err) {
-			// Process may already be dead, that's fine
+			console.error("[pty-subprocess] Failed to kill process tree:", err);
 		}
 	});
 
@@ -383,7 +383,7 @@ function handleKill(payload: Buffer): void {
 
 		treeKill(pid, "SIGKILL", (err) => {
 			if (err) {
-				// Process may already be dead
+				console.error("[pty-subprocess] Failed to SIGKILL process tree:", err);
 			}
 		});
 
@@ -445,7 +445,11 @@ function handleDispose(): void {
 		const pid = ptyProcess.pid;
 
 		// Kill the process tree - fire and forget since we're exiting
-		treeKill(pid, "SIGKILL");
+		treeKill(pid, "SIGKILL", (err) => {
+			if (err) {
+				console.error("[pty-subprocess] Failed to kill process tree:", err);
+			}
+		});
 		ptyProcess = null;
 	}
 

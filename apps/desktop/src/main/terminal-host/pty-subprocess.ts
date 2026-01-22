@@ -8,7 +8,7 @@
  * to avoid JSON escaping overhead on escape-sequence-heavy PTY output.
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { write as fsWrite } from "node:fs";
 import type { IPty } from "node-pty";
 import * as pty from "node-pty";
@@ -373,7 +373,7 @@ function handleKill(payload: Buffer): void {
 	// process groups (which happens with job control in interactive shells).
 	let tty: string | null = null;
 	try {
-		tty = execSync(`ps -o tty= -p ${pid}`, { encoding: "utf8" }).trim();
+		tty = execFileSync("ps", ["-o", "tty=", "-p", String(pid)], { encoding: "utf8" }).trim();
 	} catch {
 		// Process may already be dead, fall back to process group kill
 	}
@@ -384,7 +384,7 @@ function handleKill(payload: Buffer): void {
 	if (tty) {
 		try {
 			const pkillSignal = signal.replace(/^SIG/, "");
-			execSync(`pkill -${pkillSignal} -t ${tty}`, { stdio: "ignore" });
+			execFileSync("pkill", [`-${pkillSignal}`, "-t", tty], { stdio: "ignore" });
 		} catch {
 			// pkill returns non-zero if no processes matched - that's fine
 		}
@@ -404,7 +404,7 @@ function handleKill(payload: Buffer): void {
 
 		if (tty) {
 			try {
-				execSync(`pkill -KILL -t ${tty}`, { stdio: "ignore" });
+				execFileSync("pkill", ["-KILL", "-t", tty], { stdio: "ignore" });
 			} catch {
 				// Process may already be dead
 			}
@@ -475,9 +475,9 @@ function handleDispose(): void {
 
 		// Get TTY and kill all processes on it (handles job control process groups)
 		try {
-			const tty = execSync(`ps -o tty= -p ${pid}`, { encoding: "utf8" }).trim();
+			const tty = execFileSync("ps", ["-o", "tty=", "-p", String(pid)], { encoding: "utf8" }).trim();
 			if (tty) {
-				execSync(`pkill -KILL -t ${tty}`, { stdio: "ignore" });
+				execFileSync("pkill", ["-KILL", "-t", tty], { stdio: "ignore" });
 			}
 		} catch {
 			// Fallback to process group kill

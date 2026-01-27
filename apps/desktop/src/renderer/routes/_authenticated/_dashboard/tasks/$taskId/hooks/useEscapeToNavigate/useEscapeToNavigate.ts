@@ -21,7 +21,10 @@ export function useEscapeToNavigate(to: string) {
 			const isInContentEditable =
 				activeElement?.closest("[contenteditable='true']") !== null;
 
-			if ((isInput || isInContentEditable) && activeElement instanceof HTMLElement) {
+			if (
+				(isInput || isInContentEditable) &&
+				activeElement instanceof HTMLElement
+			) {
 				activeElement.blur();
 				event.preventDefault();
 				return;

@@ -11,6 +11,7 @@ import { useCollections } from "renderer/routes/_authenticated/providers/Collect
 import type { TaskWithStatus } from "../components/TasksView/hooks/useTasksTable";
 import { ActivitySection } from "./components/ActivitySection";
 import { CommentInput } from "./components/CommentInput";
+import { EditableTitle } from "./components/EditableTitle";
 import { PropertiesSidebar } from "./components/PropertiesSidebar";
 import { TaskMarkdownRenderer } from "./components/TaskMarkdownRenderer";
 import { useEscapeToNavigate } from "./hooks/useEscapeToNavigate";
@@ -54,6 +55,13 @@ function TaskDetailPage() {
 
 	const handleBack = () => {
 		navigate({ to: "/tasks" });
+	};
+
+	const handleSaveTitle = (title: string) => {
+		if (!task) return;
+		collections.tasks.update(task.id, (draft) => {
+			draft.title = title;
+		});
 	};
 
 	const handleSaveDescription = (markdown: string) => {
@@ -102,7 +110,7 @@ function TaskDetailPage() {
 				{/* Content */}
 				<ScrollArea className="flex-1 min-h-0">
 					<div className="px-6 py-6 max-w-4xl">
-						<h1 className="text-2xl font-semibold mb-6">{task.title}</h1>
+						<EditableTitle value={task.title} onSave={handleSaveTitle} />
 
 						<TaskMarkdownRenderer
 							content={task.description ?? ""}

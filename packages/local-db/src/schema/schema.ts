@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import type {
 	BranchPrefixMode,
 	ExternalApp,
+	FontSettings,
 	GitHubStatus,
 	GitStatus,
 	TerminalLinkBehavior,
@@ -153,6 +154,7 @@ export const settings = sqliteTable("settings", {
 	notificationSoundsMuted: integer("notification_sounds_muted", {
 		mode: "boolean",
 	}),
+	fontSettings: text("font_settings", { mode: "json" }).$type<FontSettings>(),
 });
 
 export type InsertSettings = typeof settings.$inferInsert;

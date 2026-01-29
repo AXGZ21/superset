@@ -1,6 +1,8 @@
 import {
 	BRANCH_PREFIX_MODES,
 	EXECUTION_MODES,
+	type FontSettings,
+	fontSettingsSchema,
 	settings,
 	TERMINAL_LINK_BEHAVIORS,
 	type TerminalPreset,
@@ -12,6 +14,7 @@ import { localDb } from "main/lib/local-db";
 import {
 	DEFAULT_AUTO_APPLY_DEFAULT_PRESET,
 	DEFAULT_CONFIRM_ON_QUIT,
+	DEFAULT_FONT_SETTINGS,
 	DEFAULT_TERMINAL_LINK_BEHAVIOR,
 	DEFAULT_TERMINAL_PERSISTENCE,
 } from "shared/constants";
@@ -404,6 +407,33 @@ export const createSettingsRouter = () => {
 					.run();
 
 				return { success: true };
+			}),
+
+		getFontSettings: publicProcedure.query((): FontSettings => {
+			const row = getSettings();
+			return row.fontSettings ?? DEFAULT_FONT_SETTINGS;
+		}),
+
+		setFontSettings: publicProcedure
+			.input(fontSettingsSchema.partial())
+			.mutation(({ input }) => {
+				const row = getSettings();
+				const current = row.fontSettings ?? DEFAULT_FONT_SETTINGS;
+				const updated: FontSettings = {
+					...current,
+					...input,
+				};
+
+				localDb
+					.insert(settings)
+					.values({ id: 1, fontSettings: updated })
+					.onConflictDoUpdate({
+						target: settings.id,
+						set: { fontSettings: updated },
+					})
+					.run();
+
+				return updated;
 			}),
 	});
 };

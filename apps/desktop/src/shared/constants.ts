@@ -55,6 +55,34 @@ export const DEFAULT_TERMINAL_LINK_BEHAVIOR = "external-editor" as const;
 export const DEFAULT_TERMINAL_PERSISTENCE = true;
 export const DEFAULT_AUTO_APPLY_DEFAULT_PRESET = true;
 
+// Default font settings
+export const DEFAULT_FONT_SETTINGS = {
+	editorFont: null as string | null,
+	terminalFont: null as string | null,
+	terminalFontSize: 14,
+};
+
+// Default font stacks (used when custom font is not set)
+export const DEFAULT_TERMINAL_FONT_FAMILY = [
+	"MesloLGM Nerd Font",
+	"MesloLGM NF",
+	"MesloLGS NF",
+	"MesloLGS Nerd Font",
+	"Hack Nerd Font",
+	"FiraCode Nerd Font",
+	"JetBrainsMono Nerd Font",
+	"CaskaydiaCove Nerd Font",
+	"Menlo",
+	"Monaco",
+	'"Courier New"',
+	"SF Mono",
+	"SF Pro",
+	"monospace",
+].join(", ");
+
+export const DEFAULT_EDITOR_FONT_FAMILY =
+	"ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace";
+
 // External links (documentation, help resources, etc.)
 export const EXTERNAL_LINKS = {
 	SETUP_TEARDOWN_SCRIPTS: `${process.env.NEXT_PUBLIC_DOCS_URL}/setup-teardown-scripts`,

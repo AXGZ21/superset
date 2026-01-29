@@ -9,6 +9,10 @@ import {
 	clearTerminalKilledByUser,
 	isTerminalKilledByUser,
 } from "renderer/lib/terminal-kill-tracking";
+import {
+	useTerminalFontFamily,
+	useTerminalFontSize,
+} from "renderer/stores/font";
 import { useAppHotkey } from "renderer/stores/hotkeys";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTerminalCallbacksStore } from "renderer/stores/tabs/terminal-callbacks";
@@ -73,6 +77,8 @@ export const Terminal = ({ tabId, workspaceId }: TerminalProps) => {
 		(s) => s.focusedPaneIds[pane?.tabId ?? ""],
 	);
 	const terminalTheme = useTerminalTheme();
+	const terminalFontFamily = useTerminalFontFamily();
+	const terminalFontSize = useTerminalFontSize();
 	const restartTerminalRef = useRef<() => void>(() => {});
 
 	// Terminal connection state and mutations
@@ -113,6 +119,8 @@ export const Terminal = ({ tabId, workspaceId }: TerminalProps) => {
 
 	// Refs for stable identity
 	const initialThemeRef = useRef(terminalTheme);
+	const initialFontFamilyRef = useRef(terminalFontFamily);
+	const initialFontSizeRef = useRef(terminalFontSize);
 	const isFocused = focusedPaneId === paneId;
 	const isFocusedRef = useRef(isFocused);
 	isFocusedRef.current = isFocused;
@@ -316,6 +324,8 @@ export const Terminal = ({ tabId, workspaceId }: TerminalProps) => {
 		} = createTerminalInstance(container, {
 			cwd: workspaceCwdRef.current ?? undefined,
 			initialTheme: initialThemeRef.current,
+			initialFontFamily: initialFontFamilyRef.current,
+			initialFontSize: initialFontSizeRef.current,
 			onFileLinkClick: (path, line, column) =>
 				handleFileLinkClickRef.current(path, line, column),
 		});
@@ -668,6 +678,21 @@ export const Terminal = ({ tabId, workspaceId }: TerminalProps) => {
 		if (!xterm || !terminalTheme) return;
 		xterm.options.theme = terminalTheme;
 	}, [terminalTheme]);
+
+	useEffect(() => {
+		const xterm = xtermRef.current;
+		if (!xterm || !terminalFontFamily) return;
+		xterm.options.fontFamily = terminalFontFamily;
+	}, [terminalFontFamily]);
+
+	useEffect(() => {
+		const xterm = xtermRef.current;
+		const fitAddon = fitAddonRef.current;
+		if (!xterm || !terminalFontSize) return;
+		xterm.options.fontSize = terminalFontSize;
+		// Re-fit after font size change to recalculate dimensions
+		fitAddon?.fit();
+	}, [terminalFontSize]);
 
 	const terminalBg = terminalTheme?.background ?? getDefaultTerminalBg();
 

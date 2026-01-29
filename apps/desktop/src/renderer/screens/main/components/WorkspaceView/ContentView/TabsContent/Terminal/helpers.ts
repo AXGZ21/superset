@@ -159,6 +159,8 @@ function loadRenderer(xterm: XTerm): TerminalRenderer {
 export interface CreateTerminalOptions {
 	cwd?: string;
 	initialTheme?: ITheme | null;
+	initialFontFamily?: string;
+	initialFontSize?: number;
 	onFileLinkClick?: (path: string, line?: number, column?: number) => void;
 }
 
@@ -179,11 +181,22 @@ export function createTerminalInstance(
 	renderer: TerminalRendererRef;
 	cleanup: () => void;
 } {
-	const { cwd, initialTheme, onFileLinkClick } = options;
+	const {
+		cwd,
+		initialTheme,
+		initialFontFamily,
+		initialFontSize,
+		onFileLinkClick,
+	} = options;
 
 	// Use provided theme, or fall back to localStorage-based default to prevent flash
 	const theme = initialTheme ?? getDefaultTerminalTheme();
-	const terminalOptions = { ...TERMINAL_OPTIONS, theme };
+	const terminalOptions = {
+		...TERMINAL_OPTIONS,
+		theme,
+		...(initialFontFamily && { fontFamily: initialFontFamily }),
+		...(initialFontSize && { fontSize: initialFontSize }),
+	};
 	const xterm = new XTerm(terminalOptions);
 	const fitAddon = new FitAddon();
 

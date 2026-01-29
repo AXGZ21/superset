@@ -6,7 +6,8 @@ import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import type React from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useEditorFontFamily } from "renderer/stores/font";
 import { useMonacoTheme } from "renderer/stores/theme";
 
 self.MonacoEnvironment = {
@@ -104,6 +105,7 @@ export function MonacoProvider({ children }: MonacoProviderProps) {
 	);
 }
 
+// Base options without fontFamily (fontFamily is set dynamically via useMonacoEditorOptions)
 export const MONACO_EDITOR_OPTIONS = {
 	minimap: { enabled: false },
 	scrollBeyondLastLine: false,
@@ -111,14 +113,27 @@ export const MONACO_EDITOR_OPTIONS = {
 	fontSize: 13,
 	lineHeight: 20,
 	lineNumbersMinChars: 3,
-	fontFamily:
-		"ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
 	padding: { top: 8, bottom: 8 },
 	scrollbar: {
 		verticalScrollbarSize: 8,
 		horizontalScrollbarSize: 8,
 	},
 };
+
+/**
+ * Hook that returns Monaco editor options with the current font family from settings.
+ * Use this instead of MONACO_EDITOR_OPTIONS directly to get reactive font updates.
+ */
+export function useMonacoEditorOptions() {
+	const fontFamily = useEditorFontFamily();
+	return useMemo(
+		() => ({
+			...MONACO_EDITOR_OPTIONS,
+			fontFamily,
+		}),
+		[fontFamily],
+	);
+}
 
 export function registerSaveAction(
 	editor: monaco.editor.IStandaloneCodeEditor,

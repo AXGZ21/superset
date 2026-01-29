@@ -15,6 +15,7 @@ export const SETTING_ITEM_ID = {
 	APPEARANCE_THEME: "appearance-theme",
 	APPEARANCE_MARKDOWN: "appearance-markdown",
 	APPEARANCE_CUSTOM_THEMES: "appearance-custom-themes",
+	APPEARANCE_FONTS: "appearance-fonts",
 
 	RINGTONES_NOTIFICATION: "ringtones-notification",
 
@@ -246,6 +247,28 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 			"upload",
 			"personalize",
 			"customize",
+		],
+	},
+	{
+		id: SETTING_ITEM_ID.APPEARANCE_FONTS,
+		section: "appearance",
+		title: "Fonts",
+		description: "Configure fonts for terminal and editor",
+		keywords: [
+			"appearance",
+			"font",
+			"fonts",
+			"monospace",
+			"terminal",
+			"editor",
+			"typography",
+			"size",
+			"family",
+			"berkeley",
+			"mono",
+			"nerd",
+			"fira",
+			"jetbrains",
 		],
 	},
 	{

@@ -1,3 +1,4 @@
+export * from "./font";
 export * from "./hotkeys";
 export * from "./markdown-preferences";
 export * from "./ports";

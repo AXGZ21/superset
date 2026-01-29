@@ -1,3 +1,4 @@
+import { Button } from "@superset/ui/button";
 import {
 	Select,
 	SelectContent,
@@ -5,15 +6,27 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@superset/ui/select";
+import { Slider } from "@superset/ui/slider";
 import {
 	type MarkdownStyle,
 	SYSTEM_THEME_ID,
+	useEditorFont,
 	useMarkdownStyle,
+	useSetEditorFont,
 	useSetMarkdownStyle,
+	useSetTerminalFont,
+	useSetTerminalFontSize,
 	useSetTheme,
+	useTerminalFont,
+	useTerminalFontSize,
 	useThemeId,
 	useThemeStore,
 } from "renderer/stores";
+import {
+	DEFAULT_EDITOR_FONT_FAMILY,
+	DEFAULT_FONT_SETTINGS,
+	DEFAULT_TERMINAL_FONT_FAMILY,
+} from "shared/constants";
 import { builtInThemes } from "shared/themes";
 import {
 	isItemVisible,
@@ -40,12 +53,32 @@ export function AppearanceSettings({ visibleItems }: AppearanceSettingsProps) {
 		SETTING_ITEM_ID.APPEARANCE_CUSTOM_THEMES,
 		visibleItems,
 	);
+	const showFonts = isItemVisible(
+		SETTING_ITEM_ID.APPEARANCE_FONTS,
+		visibleItems,
+	);
 
 	const activeThemeId = useThemeId();
 	const setTheme = useSetTheme();
 	const customThemes = useThemeStore((state) => state.customThemes);
 	const markdownStyle = useMarkdownStyle();
 	const setMarkdownStyle = useSetMarkdownStyle();
+
+	// Font settings
+	const editorFont = useEditorFont();
+	const terminalFont = useTerminalFont();
+	const terminalFontSize = useTerminalFontSize();
+	const setEditorFont = useSetEditorFont();
+	const setTerminalFont = useSetTerminalFont();
+	const setTerminalFontSize = useSetTerminalFontSize();
+
+	// Compute font families directly for reactivity
+	const editorFontFamily = editorFont
+		? `"${editorFont}", ${DEFAULT_EDITOR_FONT_FAMILY}`
+		: DEFAULT_EDITOR_FONT_FAMILY;
+	const terminalFontFamily = terminalFont
+		? `"${terminalFont}", ${DEFAULT_TERMINAL_FONT_FAMILY}`
+		: DEFAULT_TERMINAL_FONT_FAMILY;
 
 	const allThemes = [...builtInThemes, ...customThemes];
 
@@ -107,8 +140,157 @@ export function AppearanceSettings({ visibleItems }: AppearanceSettingsProps) {
 					</div>
 				)}
 
-				{showCustomThemes && (
+				{showFonts && (
 					<div className={showTheme || showMarkdown ? "pt-6 border-t" : ""}>
+						<h3 className="text-sm font-medium mb-4">Fonts</h3>
+
+						{/* Editor Font */}
+						<div className="mb-6">
+							<span className="text-sm font-medium">Editor Font</span>
+							<p className="text-sm text-muted-foreground mb-2">
+								Font used for code and diffs
+							</p>
+							<div className="flex items-center gap-2">
+								<Select
+									value={editorFont ?? "default"}
+									onValueChange={(value) =>
+										setEditorFont(value === "default" ? null : value)
+									}
+								>
+									<SelectTrigger className="w-[200px]">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent side="top">
+										<SelectItem value="default">Default</SelectItem>
+										<SelectItem value="Berkeley Mono">Berkeley Mono</SelectItem>
+										<SelectItem value="JetBrains Mono">
+											JetBrains Mono
+										</SelectItem>
+									</SelectContent>
+								</Select>
+								{editorFont && (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => setEditorFont(null)}
+									>
+										Reset
+									</Button>
+								)}
+							</div>
+							{/* Editor Font Preview */}
+							<div
+								className="mt-3 p-4 rounded-md bg-muted/50 border overflow-x-auto"
+								style={{ fontFamily: editorFontFamily }}
+							>
+								<pre className="text-sm">
+									<code>
+										{`// Preview
+const greeting = 'Hello, World!';
+function sum(a, b) { return a + b; }`}
+									</code>
+								</pre>
+							</div>
+						</div>
+
+						{/* Terminal Font */}
+						<div className="mb-6">
+							<span className="text-sm font-medium">Terminal Font</span>
+							<p className="text-sm text-muted-foreground mb-2">
+								Font used for terminal
+							</p>
+							<div className="flex items-center gap-2">
+								<Select
+									value={terminalFont ?? "default"}
+									onValueChange={(value) =>
+										setTerminalFont(value === "default" ? null : value)
+									}
+								>
+									<SelectTrigger className="w-[200px]">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent side="top">
+										<SelectItem value="default">Default</SelectItem>
+										<SelectItem value="Berkeley Mono">Berkeley Mono</SelectItem>
+										<SelectItem value="JetBrains Mono">
+											JetBrains Mono
+										</SelectItem>
+									</SelectContent>
+								</Select>
+								{terminalFont && (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => setTerminalFont(null)}
+									>
+										Reset
+									</Button>
+								)}
+							</div>
+						</div>
+
+						{/* Terminal Font Size */}
+						<div className="mb-6">
+							<div className="flex items-center justify-between mb-2 max-w-md">
+								<span className="text-sm font-medium">Terminal Font Size</span>
+								<div className="flex items-center gap-2">
+									<span className="text-sm text-muted-foreground">
+										{terminalFontSize}px
+									</span>
+									{terminalFontSize !==
+										DEFAULT_FONT_SETTINGS.terminalFontSize && (
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() =>
+												setTerminalFontSize(
+													DEFAULT_FONT_SETTINGS.terminalFontSize,
+												)
+											}
+										>
+											Reset
+										</Button>
+									)}
+								</div>
+							</div>
+							<Slider
+								value={[terminalFontSize]}
+								onValueChange={([value]) => setTerminalFontSize(value)}
+								min={8}
+								max={24}
+								step={1}
+								className="max-w-md"
+							/>
+						</div>
+
+						{/* Terminal Preview */}
+						<div
+							className="p-4 rounded-md bg-black text-green-400 overflow-x-auto"
+							style={{
+								fontFamily: terminalFontFamily,
+								fontSize: `${terminalFontSize}px`,
+							}}
+						>
+							<div>~/project main &#177;3 ?2</div>
+							<div>
+								<span className="text-white">&#x276F;</span> npm test{" "}
+								<span className="text-green-400">&#x2713;</span>
+							</div>
+							<div>
+								<span className="text-muted-foreground">&#x2514;&#x2500;</span>{" "}
+								<span className="text-green-400">&#x25B6;</span> All tests
+								passed!
+							</div>
+						</div>
+					</div>
+				)}
+
+				{showCustomThemes && (
+					<div
+						className={
+							showTheme || showMarkdown || showFonts ? "pt-6 border-t" : ""
+						}
+					>
 						<h3 className="text-sm font-medium mb-2">Custom Themes</h3>
 						<p className="text-sm text-muted-foreground">
 							Custom theme import coming soon. You'll be able to import JSON

@@ -81,17 +81,10 @@ jobs:
         working-directory: apps/desktop
         run: bun run clean:dev
 
-      - name: Setup Python for voice sidecar
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Build voice sidecar
-        working-directory: apps/desktop
-        run: |
-          python3 -m venv src/main/lib/voice/python/.venv
-          src/main/lib/voice/python/.venv/bin/pip install openwakeword sounddevice numpy pyinstaller
-          bash scripts/build-voice-sidecar.sh
 
       - name: Compile app with electron-vite
         working-directory: apps/desktop

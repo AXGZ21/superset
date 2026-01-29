@@ -3,8 +3,9 @@
 # The output binary is placed in dist/voice-sidecar/ and gets bundled into
 # the Electron app's extraResources by electron-builder.
 #
-# Prerequisites:
-#   pip install pyinstaller   (in the voice python venv)
+# This script is self-contained: it creates the venv and installs all
+# dependencies automatically if they are missing. The only prerequisite
+# is that `python3` is available on the PATH.
 #
 # Usage:
 #   ./scripts/build-voice-sidecar.sh
@@ -17,22 +18,28 @@ PYTHON_DIR="$DESKTOP_DIR/src/main/lib/voice/python"
 VENV_DIR="$PYTHON_DIR/.venv"
 OUTPUT_DIR="$DESKTOP_DIR/dist/voice-sidecar"
 
-if [ ! -d "$VENV_DIR" ]; then
-  echo "Error: Python venv not found at $VENV_DIR"
-  echo "Create it with: python3 -m venv $VENV_DIR && $VENV_DIR/bin/pip install openwakeword sounddevice numpy"
-  exit 1
-fi
-
 PYTHON="$VENV_DIR/bin/python3"
 PIP="$VENV_DIR/bin/pip"
 
-# Ensure PyInstaller is installed
-if ! "$PYTHON" -c "import PyInstaller" 2>/dev/null; then
-  echo "Installing PyInstaller..."
-  "$PIP" install pyinstaller
+# Create venv if it doesn't exist
+if [ ! -d "$VENV_DIR" ]; then
+  echo "[voice-sidecar] Creating Python venv..."
+  python3 -m venv "$VENV_DIR"
 fi
 
-echo "Building voice sidecar binary..."
+# Install runtime dependencies
+if ! "$PYTHON" -c "import openwakeword" 2>/dev/null; then
+  echo "[voice-sidecar] Installing dependencies..."
+  "$PIP" install --quiet openwakeword sounddevice numpy
+fi
+
+# Install PyInstaller
+if ! "$PYTHON" -c "import PyInstaller" 2>/dev/null; then
+  echo "[voice-sidecar] Installing PyInstaller..."
+  "$PIP" install --quiet pyinstaller
+fi
+
+echo "[voice-sidecar] Building binary..."
 
 "$PYTHON" -m PyInstaller \
   --name voice-sidecar \
@@ -45,6 +52,5 @@ echo "Building voice sidecar binary..."
   --collect-data openwakeword \
   "$PYTHON_DIR/main.py"
 
-echo "Voice sidecar binary built at: $OUTPUT_DIR/voice-sidecar/"
-echo "Contents:"
+echo "[voice-sidecar] Built at: $OUTPUT_DIR/voice-sidecar/"
 ls -la "$OUTPUT_DIR/voice-sidecar/"

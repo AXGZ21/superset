@@ -25,7 +25,7 @@ export function WorkspaceSidebarHeader({
 	// Derive active state from route
 	const isWorkspacesListOpen = !!matchRoute({ to: "/workspaces" });
 	const isTasksOpen = !!matchRoute({ to: "/tasks" });
-	const isChatOpen = !!matchRoute({ to: "/chat" });
+	const isChatOpen = !!matchRoute({ to: "/chats" });
 
 	const handleWorkspacesClick = () => {
 		if (isWorkspacesListOpen) {
@@ -43,7 +43,7 @@ export function WorkspaceSidebarHeader({
 	};
 
 	const handleChatClick = () => {
-		navigate({ to: "/chat" });
+		navigate({ to: "/chats" });
 	};
 
 	if (isCollapsed) {

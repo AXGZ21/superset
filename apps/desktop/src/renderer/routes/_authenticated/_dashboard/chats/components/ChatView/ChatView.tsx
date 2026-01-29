@@ -15,7 +15,7 @@ import {
 	ChatMessageList,
 	type Message,
 	type StreamingMessage,
-} from "./components/ChatMessageList";
+} from "../ChatMessageList";
 
 const STREAM_SERVER_URL = "http://localhost:8080";
 

@@ -72,7 +72,9 @@ function fetchJson<T>(url: string): Promise<T> {
 						return reject(new Error(`HTTP ${res.statusCode}`));
 					}
 					let data = "";
-					res.on("data", (chunk) => (data += chunk));
+					res.on("data", (chunk) => {
+						data += chunk;
+					});
 					res.on("end", () => resolve(JSON.parse(data) as T));
 					res.on("error", reject);
 				})
@@ -101,7 +103,9 @@ function fetchText(url: string): Promise<string> {
 						return reject(new Error(`HTTP ${res.statusCode}`));
 					}
 					let data = "";
-					res.on("data", (chunk) => (data += chunk));
+					res.on("data", (chunk) => {
+						data += chunk;
+					});
 					res.on("end", () => resolve(data));
 					res.on("error", reject);
 				})

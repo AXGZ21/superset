@@ -6,12 +6,12 @@
  */
 
 import { observable } from "@trpc/server/observable";
+import { z } from "zod";
+import { publicProcedure, router } from "../..";
 import {
 	type ClaudeStreamEvent,
 	claudeSessionManager,
-} from "main/lib/claude/session-manager";
-import { z } from "zod";
-import { publicProcedure, router } from "../..";
+} from "./utils/session-manager";
 
 export const createAiChatRouter = () => {
 	return router({

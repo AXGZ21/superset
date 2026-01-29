@@ -8,7 +8,6 @@ import {
 	sessions,
 	users,
 } from "./auth";
-import { chatMessages, chatParticipants, chatSessions } from "./chat";
 import {
 	githubInstallations,
 	githubPullRequests,
@@ -35,9 +34,6 @@ export const usersRelations = relations(users, ({ many }) => ({
 	githubInstallations: many(githubInstallations),
 	devicePresence: many(devicePresence),
 	agentCommands: many(agentCommands),
-	createdChatSessions: many(chatSessions, { relationName: "chatCreator" }),
-	chatMessages: many(chatMessages, { relationName: "chatMessageCreator" }),
-	chatParticipations: many(chatParticipants),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -65,8 +61,6 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
 	githubInstallations: many(githubInstallations),
 	devicePresence: many(devicePresence),
 	agentCommands: many(agentCommands),
-	chatSessions: many(chatSessions),
-	chatMessages: many(chatMessages),
 }));
 
 export const membersRelations = relations(members, ({ one }) => ({
@@ -106,7 +100,6 @@ export const repositoriesRelations = relations(
 			references: [organizations.id],
 		}),
 		tasks: many(tasks),
-		chatSessions: many(chatSessions),
 	}),
 );
 
@@ -224,55 +217,3 @@ export const agentCommandsRelations = relations(agentCommands, ({ one }) => ({
 		relationName: "parentCommand",
 	}),
 }));
-
-// Chat relations
-export const chatSessionsRelations = relations(
-	chatSessions,
-	({ one, many }) => ({
-		organization: one(organizations, {
-			fields: [chatSessions.organizationId],
-			references: [organizations.id],
-		}),
-		repository: one(repositories, {
-			fields: [chatSessions.repositoryId],
-			references: [repositories.id],
-		}),
-		createdBy: one(users, {
-			fields: [chatSessions.createdById],
-			references: [users.id],
-			relationName: "chatCreator",
-		}),
-		messages: many(chatMessages),
-		participants: many(chatParticipants),
-	}),
-);
-
-export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
-	session: one(chatSessions, {
-		fields: [chatMessages.sessionId],
-		references: [chatSessions.id],
-	}),
-	organization: one(organizations, {
-		fields: [chatMessages.organizationId],
-		references: [organizations.id],
-	}),
-	createdBy: one(users, {
-		fields: [chatMessages.createdById],
-		references: [users.id],
-		relationName: "chatMessageCreator",
-	}),
-}));
-
-export const chatParticipantsRelations = relations(
-	chatParticipants,
-	({ one }) => ({
-		session: one(chatSessions, {
-			fields: [chatParticipants.sessionId],
-			references: [chatSessions.id],
-		}),
-		user: one(users, {
-			fields: [chatParticipants.userId],
-			references: [users.id],
-		}),
-	}),
-);

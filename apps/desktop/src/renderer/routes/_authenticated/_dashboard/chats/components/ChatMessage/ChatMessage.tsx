@@ -71,11 +71,12 @@ function AssistantContent({
 	return (
 		<div className="space-y-3">
 			{contentBlocks.map((block, index) => {
+				const key = `${block.type}-${index}`;
 				switch (block.type) {
 					case "text":
 						return (
 							<div
-								key={index}
+								key={key}
 								className="prose prose-sm dark:prose-invert max-w-none"
 							>
 								<ReactMarkdown
@@ -95,11 +96,11 @@ function AssistantContent({
 							/>
 						);
 					case "thinking":
-						return <ThinkingBlock key={index} thinking={block.thinking} />;
+						return <ThinkingBlock key={key} thinking={block.thinking} />;
 					default:
 						return (
 							<div
-								key={index}
+								key={key}
 								className="rounded border border-border bg-muted/30 p-2 text-xs text-muted-foreground"
 							>
 								<span className="font-mono">{block.type}</span> block

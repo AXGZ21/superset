@@ -13,8 +13,11 @@
  */
 
 import { EventEmitter } from "node:events";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { DurableStream, IdempotentProducer } from "@durable-streams/client";
-import { buildClaudeEnv, getClaudeBinaryPath } from "./index";
+import { app } from "electron";
+import { buildClaudeEnv } from "../auth";
 
 const DURABLE_STREAM_URL =
 	process.env.DURABLE_STREAM_URL || "http://localhost:8080";
@@ -284,8 +287,17 @@ class ClaudeSessionManager extends EventEmitter {
 		const abortController = new AbortController();
 		session.abortController = abortController;
 
-		const binaryPath = getClaudeBinaryPath();
-		if (!binaryPath) {
+		const binaryName = process.platform === "win32" ? "claude.exe" : "claude";
+		const binaryPath = app.isPackaged
+			? join(process.resourcesPath, "bin", binaryName)
+			: join(
+					app.getAppPath(),
+					"resources",
+					"bin",
+					`${process.platform}-${process.arch}`,
+					binaryName,
+				);
+		if (!existsSync(binaryPath)) {
 			this.emit("event", {
 				type: "error",
 				sessionId,

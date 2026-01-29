@@ -15,18 +15,27 @@ export function VoiceListener() {
 	const { data: voiceEnabled } =
 		electronTrpc.settings.getVoiceCommandsEnabled.useQuery();
 
+	const { data: micPermission } = electronTrpc.voice.getMicPermission.useQuery(
+		undefined,
+		{
+			refetchOnWindowFocus: true,
+		},
+	);
+
+	const canListen = !!voiceEnabled && micPermission === "granted";
+
 	const indicatorToastRef = useRef<string | number | null>(null);
 	const responseToastRef = useRef<string | number | null>(null);
 
-	// Dismiss any lingering toasts when voice is disabled
+	// Dismiss any lingering toasts when voice is disabled or permission revoked
 	useEffect(() => {
-		if (!voiceEnabled) {
+		if (!canListen) {
 			dismissAll(indicatorToastRef, responseToastRef);
 		}
-	}, [voiceEnabled]);
+	}, [canListen]);
 
 	electronTrpc.voice.subscribe.useSubscription(undefined, {
-		enabled: !!voiceEnabled,
+		enabled: canListen,
 		onData: (event) => {
 			switch (event.type) {
 				case "recording": {

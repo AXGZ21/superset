@@ -85,8 +85,43 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 			},
 		});
 
+	const { data: micPermission } = electronTrpc.voice.getMicPermission.useQuery(
+		undefined,
+		{
+			refetchOnWindowFocus: true,
+		},
+	);
+
+	const requestMicPermission =
+		electronTrpc.voice.requestMicPermission.useMutation({
+			onSuccess: ({ granted }) => {
+				utils.voice.getMicPermission.invalidate();
+				if (granted) {
+					setVoiceCommandsEnabled.mutate({ enabled: true });
+				}
+			},
+		});
+
+	const openUrl = electronTrpc.external.openUrl.useMutation();
+
+	const micDenied =
+		micPermission === "denied" || micPermission === "restricted";
+
 	const handleVoiceToggle = (enabled: boolean) => {
-		setVoiceCommandsEnabled.mutate({ enabled });
+		if (!enabled) {
+			setVoiceCommandsEnabled.mutate({ enabled: false });
+			return;
+		}
+
+		if (micPermission === "granted") {
+			setVoiceCommandsEnabled.mutate({ enabled: true });
+			return;
+		}
+
+		if (micPermission === "not-determined") {
+			requestMicPermission.mutate();
+			return;
+		}
 	};
 
 	const { data: branchPrefix, isLoading: isBranchPrefixLoading } =
@@ -169,21 +204,45 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 				)}
 
 				{showVoiceCommands && (
-					<div className="flex items-center justify-between">
-						<div className="space-y-0.5">
-							<Label htmlFor="voice-commands" className="text-sm font-medium">
-								Voice Commands
-							</Label>
-							<p className="text-xs text-muted-foreground">
-								Enable wake word detection and voice commands
-							</p>
+					<div className="space-y-2">
+						<div className="flex items-center justify-between">
+							<div className="space-y-0.5">
+								<Label htmlFor="voice-commands" className="text-sm font-medium">
+									Voice Commands
+								</Label>
+								<p className="text-xs text-muted-foreground">
+									Enable wake word detection and voice commands
+								</p>
+							</div>
+							<Switch
+								id="voice-commands"
+								checked={voiceCommandsEnabled ?? false}
+								onCheckedChange={handleVoiceToggle}
+								disabled={
+									isVoiceLoading ||
+									setVoiceCommandsEnabled.isPending ||
+									requestMicPermission.isPending ||
+									micDenied
+								}
+							/>
 						</div>
-						<Switch
-							id="voice-commands"
-							checked={voiceCommandsEnabled ?? false}
-							onCheckedChange={handleVoiceToggle}
-							disabled={isVoiceLoading || setVoiceCommandsEnabled.isPending}
-						/>
+						{micDenied && (
+							<p className="text-xs text-destructive">
+								Microphone access was denied.{" "}
+								<button
+									type="button"
+									className="underline hover:no-underline"
+									onClick={() =>
+										openUrl.mutate(
+											"x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+										)
+									}
+								>
+									Open System Settings
+								</button>{" "}
+								to grant access, then return to this window.
+							</p>
+						)}
 					</div>
 				)}
 

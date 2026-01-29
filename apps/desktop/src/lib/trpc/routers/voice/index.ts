@@ -1,12 +1,22 @@
 import { observable } from "@trpc/server/observable";
+import { systemPreferences } from "electron";
 import {
 	getCurrentVoiceState,
 	startVoiceProcess,
 	stopVoiceProcess,
 	voiceProcessEmitter,
 } from "main/lib/voice/voice-process";
-import type { VoiceSidecarEvent } from "shared/voice";
+import type { MicPermissionStatus, VoiceSidecarEvent } from "shared/voice";
 import { publicProcedure, router } from "../..";
+
+function getMicStatus(): MicPermissionStatus {
+	if (process.platform !== "darwin") {
+		return "granted";
+	}
+	return systemPreferences.getMediaAccessStatus(
+		"microphone",
+	) as MicPermissionStatus;
+}
 
 export const createVoiceRouter = () => {
 	let subscriberCount = 0;
@@ -50,5 +60,28 @@ export const createVoiceRouter = () => {
 			stopVoiceProcess();
 			return { success: true as const };
 		}),
+
+		getMicPermission: publicProcedure.query((): MicPermissionStatus => {
+			return getMicStatus();
+		}),
+
+		requestMicPermission: publicProcedure.mutation(
+			async (): Promise<{ granted: boolean; status: MicPermissionStatus }> => {
+				const current = getMicStatus();
+
+				if (current === "granted") {
+					return { granted: true, status: "granted" };
+				}
+
+				if (current !== "not-determined") {
+					return { granted: false, status: current };
+				}
+
+				const granted = await systemPreferences.askForMediaAccess("microphone");
+				const status = getMicStatus();
+
+				return { granted, status };
+			},
+		),
 	});
 };

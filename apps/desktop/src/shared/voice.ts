@@ -1,3 +1,9 @@
+export type MicPermissionStatus =
+	| "not-determined"
+	| "granted"
+	| "denied"
+	| "restricted";
+
 /**
  * Voice sidecar events emitted by the Python child process via stdio JSON lines.
  * These are the events the tRPC subscription forwards to the renderer.

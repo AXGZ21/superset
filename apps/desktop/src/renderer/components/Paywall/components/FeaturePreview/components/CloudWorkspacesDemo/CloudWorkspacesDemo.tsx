@@ -32,7 +32,9 @@ export function CloudWorkspacesDemo() {
 					<div className="flex items-center justify-center gap-3 mb-4 py-3">
 						<div className="flex flex-col items-center gap-1">
 							<HiComputerDesktop className="w-6 h-6 text-muted-foreground" />
-							<span className="text-[9px] text-muted-foreground/70">Desktop</span>
+							<span className="text-[9px] text-muted-foreground/70">
+								Desktop
+							</span>
 						</div>
 						<div className="flex flex-col items-center">
 							<div className="flex items-center gap-1">
@@ -56,7 +58,9 @@ export function CloudWorkspacesDemo() {
 						</div>
 						<div className="flex flex-col items-center gap-1">
 							<HiDeviceTablet className="w-6 h-6 text-muted-foreground" />
-							<span className="text-[9px] text-muted-foreground/70">Tablet</span>
+							<span className="text-[9px] text-muted-foreground/70">
+								Tablet
+							</span>
 						</div>
 					</div>
 
@@ -73,8 +77,12 @@ export function CloudWorkspacesDemo() {
 								<div
 									className={`w-1.5 h-1.5 rounded-full ${ws.synced ? "bg-emerald-400" : "bg-amber-400"}`}
 								/>
-								<span className="text-foreground/80 truncate flex-1">{ws.name}</span>
-								<span className="text-muted-foreground/50 text-[10px]">{ws.branch}</span>
+								<span className="text-foreground/80 truncate flex-1">
+									{ws.name}
+								</span>
+								<span className="text-muted-foreground/50 text-[10px]">
+									{ws.branch}
+								</span>
 							</div>
 						))}
 					</div>

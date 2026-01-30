@@ -24,7 +24,9 @@ export function IntegrationsDemo() {
 							<div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
 							<div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
 						</div>
-						<span className="text-xs text-muted-foreground ml-1">Integrations</span>
+						<span className="text-xs text-muted-foreground ml-1">
+							Integrations
+						</span>
 					</div>
 				</div>
 

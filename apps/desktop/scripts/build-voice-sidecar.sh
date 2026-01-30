@@ -33,6 +33,20 @@ if ! "$PYTHON" -c "import openwakeword" 2>/dev/null; then
   "$PIP" install --quiet openwakeword sounddevice numpy
 fi
 
+# openwakeword >=0.6.0 no longer ships pre-trained models in the pip package.
+# Download the required models into the package's resources directory.
+OWW_PKG_DIR=$("$PYTHON" -c "import openwakeword, os; print(os.path.dirname(openwakeword.__file__))")
+OWW_MODELS_DIR="$OWW_PKG_DIR/resources/models"
+mkdir -p "$OWW_MODELS_DIR"
+
+OWW_BASE_URL="https://github.com/dscripka/openWakeWord/releases/download/v0.5.1"
+for model in hey_jarvis_v0.1.onnx melspectrogram.onnx embedding_model.onnx; do
+  if [ ! -f "$OWW_MODELS_DIR/$model" ]; then
+    echo "[voice-sidecar] Downloading model: $model"
+    curl -sL "$OWW_BASE_URL/$model" -o "$OWW_MODELS_DIR/$model"
+  fi
+done
+
 # Install PyInstaller
 if ! "$PYTHON" -c "import PyInstaller" 2>/dev/null; then
   echo "[voice-sidecar] Installing PyInstaller..."
@@ -63,14 +77,9 @@ ls -la "$BUNDLE_DIR/"
 if [ ! -f "$INTERNAL_DIR/openwakeword/resources/models/hey_jarvis_v0.1.onnx" ]; then
   echo "[voice-sidecar] Model not found in bundle, copying openwakeword data manually..."
   OWW_PKG_DIR=$("$PYTHON" -c "import openwakeword, os; print(os.path.dirname(openwakeword.__file__))")
-  echo "[voice-sidecar] Copying from: $OWW_PKG_DIR"
-  echo "[voice-sidecar] Source package contents:"
-  find "$OWW_PKG_DIR" -name "*.onnx" 2>/dev/null || echo "[voice-sidecar] No .onnx files in source!"
-  # Remove any partial directory and copy the full package tree
+  echo "[voice-sidecar] Copying openwakeword package from: $OWW_PKG_DIR"
   rm -rf "$INTERNAL_DIR/openwakeword"
   cp -R "$OWW_PKG_DIR" "$INTERNAL_DIR/openwakeword"
-  echo "[voice-sidecar] After copy:"
-  find "$INTERNAL_DIR/openwakeword" -name "*.onnx" 2>/dev/null || echo "[voice-sidecar] No .onnx files after copy!"
 fi
 
 # Final verification

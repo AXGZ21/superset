@@ -9,7 +9,7 @@ import { buildBulkResult } from "./types";
 
 const workspaceUpdateSchema = z.object({
 	workspaceId: z.string().uuid(),
-	name: z.string().min(1).optional(),
+	name: z.string().min(1),
 });
 
 const schema = z.object({
@@ -18,7 +18,7 @@ const schema = z.object({
 
 interface UpdatedWorkspace {
 	workspaceId: string;
-	name?: string;
+	name: string;
 }
 
 async function execute(
@@ -30,15 +30,6 @@ async function execute(
 
 	for (const [i, update] of params.updates.entries()) {
 		try {
-			if (!update.name) {
-				errors.push({
-					index: i,
-					workspaceId: update.workspaceId,
-					error: "No updatable fields provided",
-				});
-				continue;
-			}
-
 			await ctx.updateWorkspace.mutateAsync({
 				id: update.workspaceId,
 				patch: { name: update.name },

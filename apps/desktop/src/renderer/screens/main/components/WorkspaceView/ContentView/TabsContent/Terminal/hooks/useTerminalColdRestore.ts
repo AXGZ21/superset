@@ -72,11 +72,9 @@ export function useTerminalColdRestore({
 	const [isRestoredMode, setIsRestoredMode] = useState(false);
 	const [restoredCwd, setRestoredCwd] = useState<string | null>(null);
 
-	// Ref for restoredCwd to use in callbacks
 	const restoredCwdRef = useRef(restoredCwd);
 	restoredCwdRef.current = restoredCwd;
 
-	// Ref for handleStartShell to allow calling from handleRetryConnection
 	const handleStartShellRef = useRef<(cwd?: string | null) => void>(() => {});
 
 	const handleRetryConnection = useCallback(() => {
@@ -175,10 +173,8 @@ export function useTerminalColdRestore({
 			const fitAddon = fitAddonRef.current;
 			if (!xterm || !fitAddon) return;
 
-			// Drop any queued events from the pre-restore session
 			pendingEventsRef.current = [];
 
-			// Acknowledge cold restore to main process
 			trpcClient.terminal.ackColdRestore.mutate({ paneId }).catch((error) => {
 				console.warn("[Terminal] Failed to acknowledge cold restore:", {
 					paneId,
@@ -186,7 +182,6 @@ export function useTerminalColdRestore({
 				});
 			});
 
-			// Reset state for new session
 			isStreamReadyRef.current = false;
 			isExitedRef.current = false;
 			wasKilledByUserRef.current = false;
@@ -195,7 +190,6 @@ export function useTerminalColdRestore({
 			pendingInitialStateRef.current = null;
 			resetModes();
 
-			// Create new session with previous cwd (use passed cwd or fall back to ref)
 			createOrAttachRef.current(
 				{
 					paneId,
@@ -253,7 +247,6 @@ export function useTerminalColdRestore({
 		],
 	);
 
-	// Keep ref updated for use in handleRetryConnection
 	handleStartShellRef.current = handleStartShell;
 
 	return {

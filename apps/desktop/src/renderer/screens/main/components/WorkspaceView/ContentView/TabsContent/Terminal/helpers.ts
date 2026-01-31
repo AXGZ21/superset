@@ -681,3 +681,143 @@ export function setupClickToMoveCursor(
 		xterm.element?.removeEventListener("click", handleClick);
 	};
 }
+
+interface MutableRef<T> {
+	current: T;
+}
+
+export interface TerminalInputHandlerOptions {
+	isRestoredModeRef: MutableRef<boolean>;
+	connectionErrorRef: MutableRef<string | null>;
+	isExitedRef: MutableRef<boolean>;
+	isFocusedRef: MutableRef<boolean>;
+	wasKilledByUserRef: MutableRef<boolean>;
+	paneId: string;
+	writeRef: MutableRef<(params: { paneId: string; data: string }) => void>;
+	onRestart: () => void;
+}
+
+export function createTerminalInputHandler(
+	options: TerminalInputHandlerOptions,
+): (data: string) => void {
+	return (data: string) => {
+		if (options.isRestoredModeRef.current || options.connectionErrorRef.current)
+			return;
+		if (options.isExitedRef.current) {
+			if (!options.isFocusedRef.current || options.wasKilledByUserRef.current)
+				return;
+			options.onRestart();
+			return;
+		}
+		options.writeRef.current({ paneId: options.paneId, data });
+	};
+}
+
+export interface KeyPressHandlerOptions {
+	paneId: string;
+	tabId: string;
+	isRestoredModeRef: MutableRef<boolean>;
+	connectionErrorRef: MutableRef<string | null>;
+	isAlternateScreenRef: MutableRef<boolean>;
+	commandBufferRef: MutableRef<string>;
+	debouncedSetTabAutoTitle: (tabId: string, title: string) => void;
+	sanitizeForTitle: (buffer: string) => string;
+	getPane: () => { status?: string } | undefined;
+	setPaneStatus: (paneId: string, status: string) => void;
+}
+
+export function createKeyPressHandler(
+	options: KeyPressHandlerOptions,
+): (event: { key: string; domEvent: KeyboardEvent }) => void {
+	return (event: { key: string; domEvent: KeyboardEvent }) => {
+		if (options.isRestoredModeRef.current || options.connectionErrorRef.current)
+			return;
+		const { domEvent } = event;
+		if (domEvent.key === "Enter") {
+			if (!options.isAlternateScreenRef.current) {
+				const title = options.sanitizeForTitle(
+					options.commandBufferRef.current,
+				);
+				if (title) {
+					options.debouncedSetTabAutoTitle(options.tabId, title);
+				}
+			}
+			options.commandBufferRef.current = "";
+		} else if (domEvent.key === "Backspace") {
+			options.commandBufferRef.current = options.commandBufferRef.current.slice(
+				0,
+				-1,
+			);
+		} else if (domEvent.key === "c" && domEvent.ctrlKey) {
+			options.commandBufferRef.current = "";
+			const currentPane = options.getPane();
+			if (
+				currentPane?.status === "working" ||
+				currentPane?.status === "permission"
+			) {
+				options.setPaneStatus(options.paneId, "idle");
+			}
+		} else if (domEvent.key === "Escape") {
+			const currentPane = options.getPane();
+			if (
+				currentPane?.status === "working" ||
+				currentPane?.status === "permission"
+			) {
+				options.setPaneStatus(options.paneId, "idle");
+			}
+		} else if (
+			domEvent.key.length === 1 &&
+			!domEvent.ctrlKey &&
+			!domEvent.metaKey
+		) {
+			options.commandBufferRef.current += domEvent.key;
+		}
+	};
+}
+
+export interface VisibilityChangeHandlerOptions {
+	xterm: XTerm;
+	fitAddon: FitAddon;
+	paneId: string;
+	resizeRef: MutableRef<
+		(params: { paneId: string; cols: number; rows: number }) => void
+	>;
+	isUnmountedRef: MutableRef<boolean>;
+	xtermRef: MutableRef<XTerm | null>;
+}
+
+export function setupVisibilityChangeHandler(
+	options: VisibilityChangeHandlerOptions,
+): () => void {
+	const handleVisibilityChange = () => {
+		if (document.hidden || options.isUnmountedRef.current) return;
+		const buffer = options.xterm.buffer.active;
+		const wasAtBottom = buffer.viewportY >= buffer.baseY;
+		const prevCols = options.xterm.cols;
+		const prevRows = options.xterm.rows;
+		options.fitAddon.fit();
+		if (options.xterm.cols !== prevCols || options.xterm.rows !== prevRows) {
+			options.resizeRef.current({
+				paneId: options.paneId,
+				cols: options.xterm.cols,
+				rows: options.xterm.rows,
+			});
+		}
+		if (wasAtBottom) {
+			requestAnimationFrame(() => {
+				if (
+					options.isUnmountedRef.current ||
+					options.xtermRef.current !== options.xterm
+				)
+					return;
+				scrollToBottom(options.xterm);
+			});
+		}
+	};
+
+	document.addEventListener("visibilitychange", handleVisibilityChange);
+
+	return () => {
+		document.removeEventListener("visibilitychange", handleVisibilityChange);
+	};
+}

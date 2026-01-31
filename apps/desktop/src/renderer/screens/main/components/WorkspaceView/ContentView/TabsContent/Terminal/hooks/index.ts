@@ -15,6 +15,11 @@ export type {
 	UseTerminalCwdReturn,
 } from "./useTerminalCwd";
 export { useTerminalCwd } from "./useTerminalCwd";
+export type {
+	UseTerminalLifecycleOptions,
+	UseTerminalLifecycleReturn,
+} from "./useTerminalLifecycle";
+export { useTerminalLifecycle } from "./useTerminalLifecycle";
 export type { UseTerminalModesReturn } from "./useTerminalModes";
 export { useTerminalModes } from "./useTerminalModes";
 export type {

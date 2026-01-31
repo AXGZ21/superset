@@ -45,6 +45,9 @@ export function useCommandWatcher() {
 			getWorkspaces: () => workspaces,
 			getProjects: () => projects,
 			getActiveWorkspaceId: getCurrentWorkspaceIdFromRoute,
+			getTask: (taskId: string) => collections.tasks.get(taskId),
+			getTaskStatus: (statusId: string) =>
+				collections.taskStatuses.get(statusId),
 			navigateToWorkspace: (workspaceId: string) =>
 				navigateToWorkspace(workspaceId, navigate),
 		}),
@@ -56,6 +59,8 @@ export function useCommandWatcher() {
 			workspaces,
 			projects,
 			getCurrentWorkspaceIdFromRoute,
+			collections.tasks,
+			collections.taskStatuses,
 			navigate,
 		],
 	);

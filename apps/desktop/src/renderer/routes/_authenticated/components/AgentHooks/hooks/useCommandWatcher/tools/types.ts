@@ -1,4 +1,3 @@
-import type { SelectTask, SelectTaskStatus } from "@superset/db/schema";
 import type { SelectProject, SelectWorkspace } from "@superset/local-db";
 import type { electronTrpc } from "renderer/lib/electron-trpc";
 import type { z } from "zod";
@@ -22,9 +21,6 @@ export interface ToolContext {
 	getWorkspaces: () => SelectWorkspace[] | undefined;
 	getProjects: () => SelectProject[] | undefined;
 	getActiveWorkspaceId: () => string | null;
-	// Collections for local data access
-	getTask: (taskId: string) => SelectTask | undefined;
-	getTaskStatus: (statusId: string) => SelectTaskStatus | undefined;
 	// Navigation
 	navigateToWorkspace: (workspaceId: string) => Promise<void>;
 }

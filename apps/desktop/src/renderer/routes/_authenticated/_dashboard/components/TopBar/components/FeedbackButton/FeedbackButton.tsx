@@ -10,10 +10,13 @@ import { toast } from "@superset/ui/sonner";
 import { Textarea } from "@superset/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { useRef, useState } from "react";
+import { FaDiscord } from "react-icons/fa6";
 import {
+	LuBookOpen,
+	LuGithub,
 	LuImagePlus,
 	LuLoader,
-	LuMegaphone,
+	LuMessageSquarePlus,
 	LuTrash2,
 	LuX,
 } from "react-icons/lu";
@@ -110,7 +113,7 @@ export function FeedbackButton() {
 						onClick={openModal}
 						className="no-drag flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
 					>
-						<LuMegaphone className="size-4" strokeWidth={1.5} />
+						<LuMessageSquarePlus className="size-4" strokeWidth={1.5} />
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom">Feedback</TooltipContent>
@@ -180,6 +183,40 @@ export function FeedbackButton() {
 							</Button>
 						</div>
 					</div>
+
+					<p className="text-xs text-muted-foreground">
+						Looking for help? Try opening a{" "}
+						<a
+							href="https://github.com/superset-sh/superset/issues"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-1 text-foreground hover:underline"
+						>
+							<LuGithub className="size-3" />
+							GitHub issue
+						</a>
+						, our{" "}
+						<a
+							href="https://docs.superset.sh"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-1 text-foreground hover:underline"
+						>
+							<LuBookOpen className="size-3" />
+							docs
+						</a>
+						, or{" "}
+						<a
+							href="https://discord.gg/cZeD9WYcV7"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-1 text-foreground hover:underline"
+						>
+							<FaDiscord className="size-3" />
+							Discord
+						</a>
+						.
+					</p>
 
 					<DialogFooter className="gap-2 sm:gap-0">
 						{hasContent && (

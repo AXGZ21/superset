@@ -15,6 +15,12 @@
 
 export { LocalWorkspaceRuntime } from "./local";
 export {
+	CloudWorkspaceRuntime,
+	type CloudSessionConfig,
+	type CloudEvent,
+	type CloudSessionState,
+} from "./cloud";
+export {
 	getWorkspaceRuntimeRegistry,
 	resetWorkspaceRuntimeRegistry,
 } from "./registry";

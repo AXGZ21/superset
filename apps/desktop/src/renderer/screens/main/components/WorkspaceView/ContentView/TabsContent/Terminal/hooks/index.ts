@@ -3,6 +3,8 @@ export type {
 	UseFileLinkClickReturn,
 } from "./useFileLinkClick";
 export { useFileLinkClick } from "./useFileLinkClick";
+export type { UseTerminalOptions, UseTerminalReturn } from "./useTerminal";
+export { useTerminal } from "./useTerminal";
 export type {
 	UseTerminalColdRestoreOptions,
 	UseTerminalColdRestoreReturn,

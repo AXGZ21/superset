@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@superset/ui/card";
 import { Input } from "@superset/ui/input";
 import { ScrollArea } from "@superset/ui/scroll-area";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
+	LuChevronLeft,
 	LuCircle,
 	LuCloud,
 	LuGitBranch,
@@ -169,7 +171,13 @@ export function CloudWorkspaceContent({
 		<div className="flex h-screen flex-col bg-background">
 			{/* Header */}
 			<header className="flex items-center gap-3 border-b px-4 py-3">
-				<LuCloud className="size-5 text-muted-foreground" />
+				<Link
+					href="/cloud"
+					className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+				>
+					<LuChevronLeft className="size-4" />
+					<LuCloud className="size-5" />
+				</Link>
 				<div className="flex-1">
 					<h1 className="text-lg font-semibold">{workspace.title}</h1>
 					<div className="flex items-center gap-2 text-sm text-muted-foreground">

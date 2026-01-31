@@ -6,65 +6,37 @@ import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { executeOnDevice, getMcpContext } from "../../utils";
 
-interface TaskData {
-	id: string;
-	title: string;
-	slug: string;
-	description: string | null;
-	priority: string;
-	statusName: string | null;
-	labels: string[] | null;
-}
+function buildCommand(task: NonNullable<Awaited<ReturnType<typeof fetchTask>>>): string {
+	const metadata = [
+		`Priority: ${task.priority}`,
+		task.statusName && `Status: ${task.statusName}`,
+		task.labels?.length && `Labels: ${task.labels.join(", ")}`,
+	]
+		.filter(Boolean)
+		.join("\n");
 
-function buildPrompt(task: TaskData): string {
-	const lines: string[] = [];
+	const prompt = `You are working on task "${task.title}" (${task.slug}).
 
-	lines.push(`You are working on task "${task.title}" (${task.slug}).`);
-	lines.push("");
+${metadata}
 
-	lines.push(`Priority: ${task.priority}`);
-	if (task.statusName) {
-		lines.push(`Status: ${task.statusName}`);
-	}
-	if (task.labels && task.labels.length > 0) {
-		lines.push(`Labels: ${task.labels.join(", ")}`);
-	}
-	lines.push("");
+## Task Description
 
-	lines.push("## Task Description");
-	lines.push("");
-	lines.push(task.description || "No description provided.");
-	lines.push("");
+${task.description || "No description provided."}
 
-	lines.push("## Instructions");
-	lines.push("");
-	lines.push(
-		"You are running fully autonomously. Do not ask questions or wait for user feedback — make all decisions independently based on the codebase and task description.",
-	);
-	lines.push("");
-	lines.push(
-		"1. Explore the codebase to understand the relevant code and architecture",
-	);
-	lines.push("2. Create a detailed execution plan for this task including:");
-	lines.push("   - Purpose and scope of the changes");
-	lines.push("   - Key assumptions");
-	lines.push(
-		"   - Concrete implementation steps with specific files to modify",
-	);
-	lines.push("   - How to validate the changes work correctly");
-	lines.push("3. Implement the plan");
-	lines.push(
-		"4. Verify your changes work correctly (run relevant tests, typecheck, lint)",
-	);
-	lines.push(
-		`5. When done, use the Superset MCP \`update_task\` tool to update task "${task.id}" with a summary of what was done`,
-	);
+## Instructions
 
-	return lines.join("\n");
-}
+You are running fully autonomously. Do not ask questions or wait for user feedback — make all decisions independently based on the codebase and task description.
 
-function buildCommand(task: TaskData): string {
-	const prompt = buildPrompt(task);
+1. Explore the codebase to understand the relevant code and architecture
+2. Create a detailed execution plan for this task including:
+   - Purpose and scope of the changes
+   - Key assumptions
+   - Concrete implementation steps with specific files to modify
+   - How to validate the changes work correctly
+3. Implement the plan
+4. Verify your changes work correctly (run relevant tests, typecheck, lint)
+5. When done, use the Superset MCP \`update_task\` tool to update task "${task.id}" with a summary of what was done`;
+
 	return [
 		"claude --dangerously-skip-permissions \"$(cat <<'SUPERSET_PROMPT'",
 		prompt,
@@ -79,7 +51,7 @@ async function fetchTask({
 }: {
 	taskId: string;
 	organizationId: string;
-}): Promise<TaskData | null> {
+}) {
 	const status = alias(taskStatuses, "status");
 	const [task] = await db
 		.select({

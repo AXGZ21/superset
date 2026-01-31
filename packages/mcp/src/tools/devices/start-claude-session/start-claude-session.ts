@@ -6,7 +6,9 @@ import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { executeOnDevice, getMcpContext } from "../../utils";
 
-function buildCommand(task: NonNullable<Awaited<ReturnType<typeof fetchTask>>>): string {
+function buildCommand(
+	task: NonNullable<Awaited<ReturnType<typeof fetchTask>>>,
+): string {
 	const metadata = [
 		`Priority: ${task.priority}`,
 		task.statusName && `Status: ${task.statusName}`,

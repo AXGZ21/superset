@@ -75,7 +75,6 @@ export function register(server: McpServer) {
 						labels: z.array(z.string()),
 						dueDate: z.string().nullable(),
 						estimate: z.number().nullable(),
-						createdAt: z.string(),
 						deletedAt: z.string().nullable(),
 					}),
 				),
@@ -195,7 +194,6 @@ export function register(server: McpServer) {
 					labels: tasks.labels,
 					dueDate: tasks.dueDate,
 					estimate: tasks.estimate,
-					createdAt: tasks.createdAt,
 					deletedAt: tasks.deletedAt,
 				})
 				.from(tasks)
@@ -208,7 +206,11 @@ export function register(server: McpServer) {
 				.offset(offset);
 
 			const data = {
-				tasks: tasksList,
+				tasks: tasksList.map((t) => ({
+					...t,
+					dueDate: t.dueDate?.toISOString() ?? null,
+					deletedAt: t.deletedAt?.toISOString() ?? null,
+				})),
 				count: tasksList.length,
 				hasMore: tasksList.length === limit,
 			};

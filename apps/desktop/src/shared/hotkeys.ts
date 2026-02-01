@@ -570,6 +570,12 @@ export const HOTKEYS = {
 		category: "Workspace",
 		description: "Quickly create a workspace in the current project",
 	}),
+	FOCUS_TASK_SEARCH: defineHotkey({
+		keys: "meta+f",
+		label: "Focus Task Search",
+		category: "Workspace",
+		description: "Focus the search input in the tasks view",
+	}),
 	OPEN_PROJECT: defineHotkey({
 		keys: "meta+shift+o",
 		label: "Open Project",
@@ -603,6 +609,16 @@ export const HOTKEYS = {
 	}),
 
 	// Help
+	OPEN_SETTINGS: defineHotkey({
+		keys: "meta+,",
+		label: "Open Settings",
+		category: "Help",
+		defaults: {
+			darwin: "meta+,",
+			win32: "ctrl+,",
+			linux: "ctrl+,",
+		},
+	}),
 	SHOW_HOTKEYS: defineHotkey({
 		keys: "meta+slash",
 		label: "Show Keyboard Shortcuts",

@@ -58,15 +58,22 @@ const config: Configuration = {
 			to: "resources/migrations",
 			filter: ["**/*"],
 		},
+		// App icons used by Windows shortcuts (keep outside asar)
+		{
+			from: join(pkg.resources, "build/icons"),
+			to: "build/icons",
+			filter: ["**/*"],
+		},
 	],
 
 	files: [
-		"dist/**/*",
-		"package.json",
+		{
+			filter: ["dist/**/*", "!dist/resources/migrations/**", "package.json"],
+		},
 		{
 			from: pkg.resources,
 			to: "resources",
-			filter: ["**/*"],
+			filter: ["**/*", "!build/**"],
 		},
 		// Native modules rebuilt for Electron
 		{

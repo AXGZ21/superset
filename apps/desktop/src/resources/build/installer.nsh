@@ -1,4 +1,4 @@
-!include "LogicLib.nsh"
+﻿!include "LogicLib.nsh"
 !include "nsDialogs.nsh"
 !include "WinMessages.nsh"
 
@@ -8,6 +8,22 @@
 
   !macro isNoDesktopShortcut _t _f
     StrCmp $isNoDesktopShortcut "1" ${_t} ${_f}
+  !macroend
+
+  !macro customInstall
+    StrCpy $0 "$INSTDIR\\resources\\build\\icons\\icon.ico"
+    ${If} ${FileExists} "$0"
+      ${If} ${FileExists} "$newDesktopLink"
+        CreateShortCut "$newDesktopLink" "$appExe" "" "$0" 0 "" "" "${APP_DESCRIPTION}"
+        ClearErrors
+        WinShell::SetLnkAUMI "$newDesktopLink" "${APP_ID}"
+      ${EndIf}
+      ${If} ${FileExists} "$newStartMenuLink"
+        CreateShortCut "$newStartMenuLink" "$appExe" "" "$0" 0 "" "" "${APP_DESCRIPTION}"
+        ClearErrors
+        WinShell::SetLnkAUMI "$newStartMenuLink" "${APP_ID}"
+      ${EndIf}
+    ${EndIf}
   !macroend
 
   !macro customPageAfterChangeDir

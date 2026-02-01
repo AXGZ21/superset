@@ -25,7 +25,6 @@ export function TopBar() {
 				}}
 			>
 				<SidebarToggle />
-				<OrganizationDropdown />
 			</div>
 
 			<div className="flex-1" />
@@ -37,6 +36,7 @@ export function TopBar() {
 						branch={workspace.worktree?.branch}
 					/>
 				)}
+				<OrganizationDropdown />
 				<FeedbackButton />
 				{!isMac && <WindowControls />}
 			</div>

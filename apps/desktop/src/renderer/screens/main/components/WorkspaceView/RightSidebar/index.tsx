@@ -47,7 +47,7 @@ function FilesView() {
 	);
 }
 
-export function Sidebar() {
+export function RightSidebar() {
 	const { workspaceId } = useParams({ strict: false });
 	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
 		{ id: workspaceId ?? "" },
@@ -86,7 +86,7 @@ export function Sidebar() {
 				}),
 			]).catch((error) => {
 				console.error(
-					"[Sidebar/invalidateFileContent] Failed to invalidate file content queries:",
+					"[RightSidebar/invalidateFileContent] Failed to invalidate file content queries:",
 					{ worktreePath, filePath, error },
 				);
 			});

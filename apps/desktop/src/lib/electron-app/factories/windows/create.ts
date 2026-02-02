@@ -11,8 +11,7 @@ function getDefaultWindowIcon(): string | undefined {
 
 	const candidates = app.isPackaged
 		? [
-				join(app.getAppPath(), "resources", "build", "icons", "icon.ico"),
-				join(process.resourcesPath, "resources", "build", "icons", "icon.ico"),
+				join(process.resourcesPath, "build", "icons", "icon.ico"),
 			]
 		: [
 				join(app.getAppPath(), "src", "resources", "build", "icons", "icon.ico"),

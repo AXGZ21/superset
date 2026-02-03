@@ -8,6 +8,10 @@ async function verifyToken(req: Request, bearerToken?: string) {
 	// 1. Try session auth
 	const session = await auth.api.getSession({ headers: req.headers });
 	if (session?.session) {
+		if (!session.user) {
+			console.error("[mcp/auth] Session missing user");
+			return undefined;
+		}
 		const extendedSession = session.session as {
 			activeOrganizationId?: string;
 		};

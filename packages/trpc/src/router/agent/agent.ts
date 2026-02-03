@@ -22,7 +22,7 @@ export const agentRouter = {
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const organizationId = ctx.session.session.activeOrganizationId;
+			const organizationId = ctx.session.session?.activeOrganizationId;
 			if (!organizationId) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",

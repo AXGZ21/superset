@@ -21,7 +21,7 @@ export const deviceRouter = {
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const organizationId = ctx.session.session.activeOrganizationId;
+			const organizationId = ctx.session.session?.activeOrganizationId;
 			if (!organizationId) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
@@ -61,7 +61,7 @@ export const deviceRouter = {
 	 * List online devices in the organization
 	 */
 	listOnlineDevices: protectedProcedure.query(async ({ ctx }) => {
-		const organizationId = ctx.session.session.activeOrganizationId;
+		const organizationId = ctx.session.session?.activeOrganizationId;
 		if (!organizationId) {
 			return [];
 		}

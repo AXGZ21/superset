@@ -104,8 +104,8 @@ const config: Configuration = {
 		"!**/.DS_Store",
 	],
 
-	// Skip npm rebuild since we already ran electron-rebuild
-	npmRebuild: false,
+	// Rebuild native modules for Electron platform during packaging
+	npmRebuild: true,
 
 	// macOS
 	mac: {

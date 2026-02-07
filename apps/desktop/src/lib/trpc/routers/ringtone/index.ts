@@ -209,19 +209,18 @@ export const createRingtoneRouter = () => {
 			return { success: true as const };
 		}),
 
-		/**
-		 * Stop the currently playing ringtone preview
-		 */
+	/**
+	 * Stop the currently playing ringtone preview
+	 */
 	stop: publicProcedure.mutation(() => {
+		// Always stop any fallback playback process first
+		stopCurrentSound();
+		
+		// On Windows, also notify the renderer to stop its playback
 		if (process.platform === "win32") {
-			const sent = sendRingtoneEvent({ channel: "ringtone-stop" });
-			if (!sent) {
-				// Fallback to stopping current sound if no renderer window available
-				stopCurrentSound();
-			}
-		} else {
-			stopCurrentSound();
+			sendRingtoneEvent({ channel: "ringtone-stop" });
 		}
+		
 		return { success: true as const };
 	}),
 
